@@ -96,9 +96,9 @@ def assess_scenario_guardrails(scenario):
     """
     flags = []
     legal_pattern = re.compile(
-        r'\\b(?:implement(?:ing)?|comply(?:ing)? with|enforce|mandatory|'
-        r'legally required|must follow|must adopt)\\b.{0,100}'
-        r'\\b(?:EU AI Act|European AI Act|AI Act|GDPR|UK law)\\b',
+        r'\b(?:implement(?:ing)?|comply(?:ing)? with|enforce|mandatory|'
+        r'legally required|must follow|must adopt)\b.{0,100}'
+        r'\b(?:EU AI Act|European AI Act|AI Act|GDPR|UK law)\b',
         flags=re.I)
     for index, mitigation in enumerate(scenario.get('mitigations', [])):
         if legal_pattern.search(mitigation):
