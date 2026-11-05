@@ -9,7 +9,7 @@ const AGENTS=["Intake & Triage","Evidence Analyst","Policy Advisor","Global Benc
 type Job={id:string;status:string;error_type?:string|null;result_id?:string|null};
 type Run={id:string;created_at:string;human_review_required:boolean;limitations?:string[];stages:{agent:string;status:string;result?:unknown;note?:string}[]};
 type Execution={id:string;status:string;updated_at:string};
-type Review={id:string;decision:string;reviewer:string;created_at:string};
+type Review={id:string;investigation_id:string;decision:string;reviewer:string;created_at:string};
 async function api<T>(url:string,options?:RequestInit):Promise<T>{
   const r=await fetch(url,{cache:"no-store",...options});
   const value:unknown=await r.json().catch(()=>({detail:"Invalid backend response"}));
@@ -58,7 +58,7 @@ export default function Home(){
     return {name,status:event?.status??stage?.status??"idle",sequence:event?.sequence};
   }),[events,currentRun]);
   const selectedStage=useMemo(()=>currentRun?.stages.find(s=>s.agent===selectedAgent)??[...events].reverse().find(e=>e.agent===selectedAgent)?.stage,[currentRun,events,selectedAgent]);
-  const latestReviewed=reviews.some(r=>r.id&&currentRun&&r.created_at>=currentRun.created_at);
+  const latestReviewed=reviews.some(r=>r.investigation_id===currentRun?.id);
   const refreshCases=useCallback(async()=>{
     try{
       const records=await api<TwinCase[]>("/api/cases");
