@@ -110,6 +110,7 @@ def validate_draft(raw, matrix):
         if len({lookup[citation] for citation in item.citations}) < 2:
             raise ValueError('Comparison must cite two distinct jurisdictions')
     risks = assess_claim_risks(draft, evidence)
+    substantive_risks_present = bool(risks)
     support = assess_citation_support(draft, evidence)
     for item in support:
         if item['status'] == 'needs_evidence_review':
@@ -121,7 +122,7 @@ def validate_draft(raw, matrix):
         'status': 'review_required',
         'claim_risk_flags': risks,
         'claim_evidence_assessments': support,
-        'claim_grounding_status': 'flagged_for_review' if risks else 'not_semantically_verified',
+        'claim_grounding_status': 'flagged_for_review' if substantive_risks_present else 'not_semantically_verified',
         'approved_policy_findings': [],
         'automated_approval_permitted': False,
         'method': 'llm_draft_with_citation_allowlist',
