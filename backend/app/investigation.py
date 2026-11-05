@@ -107,7 +107,7 @@ def model_json(system, context, schema, max_tokens=420):
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         raise HTTPException(503, f'Local LLM unavailable: {type(exc).__name__}') from exc
     except (ValueError, KeyError, IndexError, TypeError) as exc:
-        raise HTTPException(502, f'Invalid LLM response: {str(exc)[:400]}') from exc
+        raise HTTPException(502, f'Invalid LLM response: {type(exc).__name__}') from exc
     finally:
         # Timing only: never log prompts, source excerpts, or generated text.
         # Opt-in so normal worker logs remain quiet.
