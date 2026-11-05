@@ -32,3 +32,32 @@ jobs:
         run: npx tsc --noEmit
       - name: Build
         run: npm run build
+      - name: Install Chromium for visual smoke tests
+        run: npx --yes playwright@1.58.2 install --with-deps chromium
+      - name: Render every redesigned route
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p visual-smoke
+          npm run start > /tmp/unicron-next.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 45); do
+            if curl --silent --fail http://127.0.0.1:3000/home > /dev/null; then break; fi
+            sleep 2
+          done
+          for route in home about contact network; do
+            curl --silent --show-error --fail "http://127.0.0.1:3000/$route" > /dev/null
+            npx --yes playwright@1.58.2 screenshot --browser chromium --viewport-size "1440,900" --wait-for-timeout 900 --full-page "http://127.0.0.1:3000/$route" "visual-smoke/$route-desktop.png"
+            npx --yes playwright@1.58.2 screenshot --browser chromium --viewport-size "390,844" --wait-for-timeout 900 --full-page "http://127.0.0.1:3000/$route" "visual-smoke/$route-mobile.png"
+          done
+          curl --silent --show-error --fail http://127.0.0.1:3000/ > /dev/null
+          npx --yes playwright@1.58.2 screenshot --browser chromium --viewport-size "1440,900" --wait-for-timeout 900 "http://127.0.0.1:3000/" "visual-smoke/workspace-desktop.png"
+      - name: Upload visual smoke screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unicron-visual-smoke
+          path: frontend/visual-smoke/*.png
+          if-no-files-found: warn
+          retention-days: 7
