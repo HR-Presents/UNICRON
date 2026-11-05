@@ -1,0 +1,50 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*secret*
+*credential*
+
+# Runtime data
+data/
+logs/
+backups/
+*.db
+*.sqlite
+*.sqlite3
+
+# Models and local inference runtime
+models/
+llama.cpp/
+
+# Frontend build artifacts
+**/node_modules/
+**/.next/
+**/out/
+**/build/
+**/.vercel/
+**/*.tsbuildinfo
+**/next-env.d.ts
+
+# Local backups and temporary files
+*.backup
+*.backup-*
+*.bak
+*.pre_*_backup
+*.before_*
+*.tmp
+
+# OS/editor files
+.DS_Store
+.vscode/
+.idea/

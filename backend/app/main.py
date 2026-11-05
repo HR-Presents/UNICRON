@@ -1,0 +1,123 @@
+"""CIVITAS local API. Case records are persisted; AI execution is not simulated."""
+from __future__ import annotations
+
+import os
+import sqlite3
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+
+ROOT = Path(__file__).resolve().parents[2]
+DB_PATH = Path(os.environ.get('CIVITAS_DB_PATH', str(ROOT / 'data' / 'civitas.sqlite3')))
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+@contextmanager
+def db():
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    try:
+        yield con
+        con.commit()
+    finally:
+        con.close()
+
+with db() as con:
+    con.execute('''CREATE TABLE IF NOT EXISTS cases (
+        id TEXT PRIMARY KEY, title TEXT NOT NULL, summary TEXT NOT NULL,
+        domain TEXT NOT NULL, priority TEXT NOT NULL, status TEXT NOT NULL,
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL)''')
+    con.execute('''CREATE TABLE IF NOT EXISTS audit (
+        id TEXT PRIMARY KEY, case_id TEXT, action TEXT NOT NULL,
+        detail TEXT NOT NULL, created_at TEXT NOT NULL)''')
+
+app = FastAPI(title='CIVITAS API', version='0.3.0')
+app.add_middleware(CORSMiddleware, allow_origins=['http://localhost:3000', 'http://127.0.0.1:3000'], allow_credentials=False, allow_methods=['GET','POST','PATCH'], allow_headers=['*'])
+
+class CaseCreate(BaseModel):
+    title: str = Field(min_length=3, max_length=180)
+    summary: str = Field(min_length=3, max_length=8000)
+    domain: str = Field(default='Citizen services', max_length=100)
+    priority: str = Field(default='Medium', pattern='^(Low|Medium|High)$')
+
+class CaseUpdate(BaseModel):
+    status: str = Field(pattern='^(New|Investigating|Review|Resolved)$')
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+def record(con, case_id, action, detail):
+    con.execute('INSERT INTO audit VALUES (?,?,?,?,?)', (str(uuid4()), case_id, action, detail, now()))
+
+@app.get('/api/health')
+def health():
+    return {'status': 'ok', 'service': 'civitas-api', 'version': '0.3.0', 'llm': 'configured-endpoint-not-probed'}
+
+@app.get('/api/cases')
+def list_cases():
+    with db() as con:
+        return [dict(row) for row in con.execute('SELECT * FROM cases ORDER BY updated_at DESC')]
+
+@app.post('/api/cases', status_code=201)
+def create_case(case: CaseCreate):
+    case_id = 'CIV-' + datetime.now(timezone.utc).strftime('%Y%m%d') + '-' + uuid4().hex[:6].upper()
+    stamp = now()
+    with db() as con:
+        con.execute('INSERT INTO cases VALUES (?,?,?,?,?,?,?,?)', (case_id, case.title, case.summary, case.domain, case.priority, 'New', stamp, stamp))
+        record(con, case_id, 'case.created', 'Case created by API user')
+        return dict(con.execute('SELECT * FROM cases WHERE id=?', (case_id,)).fetchone())
+
+@app.patch('/api/cases/{case_id}')
+def update_case(case_id: str, patch: CaseUpdate):
+    with db() as con:
+        existing = con.execute('SELECT * FROM cases WHERE id=?', (case_id,)).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail='Case not found')
+        con.execute('UPDATE cases SET status=?, updated_at=? WHERE id=?', (patch.status, now(), case_id))
+        record(con, case_id, 'case.status_changed', f'{existing["status"]} -> {patch.status}')
+        return dict(con.execute('SELECT * FROM cases WHERE id=?', (case_id,)).fetchone())
+
+@app.get('/api/audit')
+def list_audit():
+    with db() as con:
+        return [dict(row) for row in con.execute('SELECT * FROM audit ORDER BY created_at DESC LIMIT 200')]
+
+@app.get('/api/summary')
+def summary():
+    with db() as con:
+        total = con.execute('SELECT COUNT(*) FROM cases').fetchone()[0]
+        open_cases = con.execute("SELECT COUNT(*) FROM cases WHERE status != 'Resolved'").fetchone()[0]
+        high = con.execute("SELECT COUNT(*) FROM cases WHERE priority = 'High' AND status != 'Resolved'").fetchone()[0]
+        return {'total_cases': total, 'active_cases': open_cases, 'high_priority_open': high, 'evidence_items': con.execute('SELECT COUNT(*) FROM evidence_documents').fetchone()[0], 'agents_running': 0}
+
+# Register real LLM-backed intake triage and persistent analysis history.
+from .triage import install as install_triage
+install_triage(app, DB_PATH)
+
+from .evidence import install as install_evidence
+install_evidence(app, DB_PATH)
+
+from .investigation import install as install_investigation
+install_investigation(app, DB_PATH)
+
+# Phase 7: persistent human review of advisory investigation outputs.
+from .review import install as install_review
+install_review(app, DB_PATH)
+
+# Phase 8A: reviewer-attested policy source provenance
+from .source_registry import install as install_source_registry
+install_source_registry(app, DB_PATH)
+
+
+# Phase 8C: collaborative, moderated global knowledge base
+from .knowledge_base import install as install_knowledge_base
+install_knowledge_base(app, DB_PATH)
+
+
+# CIVITAS 0.4B: durable background investigation queue.
+from .job_queue import install as install_job_queue
+install_job_queue(app, DB_PATH)
