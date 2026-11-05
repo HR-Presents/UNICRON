@@ -141,6 +141,53 @@ def synthesis_review_gates(policy, benchmark, scenario):
     return gates
 
 
+
+def synthesis_review_actions(benchmark, scenario):
+    """Prioritized reviewer tasks with only allowlisted evidence citations.
+
+    These are review tasks, never approved policy recommendations.
+    """
+    actions = []
+    result = benchmark.get('result') or {}
+    draft = result.get('ai_comparison_draft')
+    if isinstance(draft, dict):
+        evidence = draft.get('evidence') or []
+        citations = {entry.get('citation') for entry in evidence
+                     if isinstance(entry, dict) and isinstance(entry.get('citation'), str)}
+        for item in (draft.get('policy_recommendation_drafts') or [])[:4]:
+            if not isinstance(item, dict):
+                continue
+            cited = item.get('citations')
+            if not isinstance(cited, list) or len(cited) < 2 or len(set(cited)) != len(cited):
+                continue
+            if not all(isinstance(c, str) and c in citations for c in cited):
+                continue
+            action = item.get('action')
+            if not isinstance(action, str) or not action.strip():
+                continue
+            actions.append({
+                'priority': 'high', 'owner': 'qualified_policy_reviewer',
+                'action': action[:500], 'citations': cited,
+                'status': 'proposal_requires_review',
+                'legal_applicability': 'not_established',
+            })
+    if scenario.get('guardrail_flags'):
+        actions.insert(0, {
+            'priority': 'critical', 'owner': 'scenario_domain_reviewer',
+            'action': 'Validate scenario assumptions and proposed mitigations before operational use.',
+            'citations': [], 'status': 'review_required',
+            'legal_applicability': 'not_established',
+        })
+    if benchmark.get('status') != 'completed':
+        actions.insert(0, {
+            'priority': 'critical', 'owner': 'qualified_legal_reviewer',
+            'action': 'Establish jurisdictional applicability and independently review cited policy comparisons.',
+            'citations': [], 'status': 'review_required',
+            'legal_applicability': 'not_established',
+        })
+    return actions
+
+
 def model_json(system, context, schema, max_tokens=420):
     payload = {
         'model': MODEL,
@@ -485,6 +532,7 @@ def _execute_workflow(case_id, run_id, checkpoint):
     except (ValidationError, HTTPException, ValueError) as exc:
         raise HTTPException(502, f'Review & Synthesis failed; no investigation saved: {type(exc).__name__}') from exc
     synthesis['review_gates'] = synthesis_review_gates(policy, benchmark, scenario)
+    synthesis['prioritized_review_actions'] = synthesis_review_actions(benchmark, scenario)
     synthesis['human_review_required'] = True
     synthesis['automated_approval_permitted'] = False
     stages.append({'agent': 'Review & Synthesis', 'status': 'completed', 'result': synthesis,
