@@ -275,21 +275,12 @@ def run_one(worker_id):
                 job["id"], worker_id,
                 "failed", error_type=type(exc).__name__
             )
-            import traceback
-            from fastapi import HTTPException
-
-            if isinstance(exc, HTTPException):
-                print(
-                    f"Job {job['id']} failed: "
-                    f"HTTP {exc.status_code}: {str(exc.detail)[:500]}",
-                    flush=True
-                )
-            else:
-                print(
-                    f"Job {job['id']} failed: {type(exc).__name__}",
-                    flush=True
-                )
-            traceback.print_exception(type(exc), exc, exc.__traceback__)
+            # Worker logs must not disclose exception messages, prompts,
+            # model output or evidence through chained tracebacks.
+            print(
+                f"Job {job['id']} failed: {type(exc).__name__}",
+                flush=True
+            )
         else:
             finish(
                 job["id"], worker_id,
