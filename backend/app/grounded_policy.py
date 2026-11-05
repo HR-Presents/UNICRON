@@ -218,13 +218,6 @@ def verify_draft_claims(draft, model_call):
             'reason': 'Independent model evidence assessment failed validation or was unavailable.'})
         return draft
 
-    draft['model_evidence_assessments'] = []
-        draft['claim_risk_flags'].append({
-            'claim_index': None, 'code': 'semantic_verifier_unavailable',
-            'action': 'qualified_review_required',
-            'reason': 'Independent model evidence assessment failed validation or was unavailable.'})
-        return draft
-
     draft['model_evidence_assessments'] = [
         {'claim_index': item.claim_index, 'verdict': item.verdict,
          'reason': item.reason, 'human_review_required': True}
