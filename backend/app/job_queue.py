@@ -324,6 +324,46 @@ def stale_running_jobs(threshold_seconds=90, at=None):
     return [dict(row) for row in rows]
 
 
+def recover_stale_jobs(threshold_seconds=90, workers_stopped=False):
+    """Operator-gated, transactional stale recovery; never requeue jobs.
+
+    Workers must be stopped externally first. Stale timestamps alone cannot
+    distinguish a crashed worker from a paused or overloaded live worker.
+    """
+    if not workers_stopped:
+        raise ValueError("Confirm all investigation workers are stopped")
+    if threshold_seconds <= 0:
+        raise ValueError("threshold_seconds must be positive")
+    stamp = now()
+    cutoff = (datetime.now(timezone.utc) -
+              timedelta(seconds=threshold_seconds)).isoformat()
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        stale = db.execute("""
+            SELECT id, case_id FROM investigation_jobs
+            WHERE status='running'
+              AND (heartbeat_at IS NULL OR heartbeat_at < ?)
+        """, (cutoff,)).fetchall()
+        case_ids = sorted({row['case_id'] for row in stale})
+        if stale:
+            db.executemany("""
+                UPDATE investigation_jobs
+                SET status='interrupted', error_type='WorkerInterrupted',
+                    updated_at=?
+                WHERE id=? AND status='running'
+            """, [(stamp, row['id']) for row in stale])
+        # Do not touch executions for healthy jobs or unrelated cases.
+        for case_id in case_ids:
+            db.execute("""
+                UPDATE investigation_execution
+                SET status='failed', error_type='WorkerInterrupted',
+                    updated_at=?
+                WHERE case_id=? AND status='running'
+            """, (stamp, case_id))
+        db.commit()
+    return len(stale)
+
+
 def mark_interrupted_jobs():
     """Explicit operator recovery after confirming workers are stopped.
 
@@ -361,6 +401,16 @@ def main():
         help="Mark interrupted jobs after all old workers are stopped"
     )
     parser.add_argument(
+        "--recover-stale",
+        action="store_true",
+        help="Recover only stale jobs after confirming every worker is stopped"
+    )
+    parser.add_argument(
+        "--workers-stopped",
+        action="store_true",
+        help="Explicit acknowledgment required for --recover-stale"
+    )
+    parser.add_argument(
         "--stale-report",
         action="store_true",
         help="List stale running jobs without modifying jobs or locks"
@@ -385,6 +435,13 @@ def main():
     install_if_needed = DB_PATH is None
     if install_if_needed:
         install(api_main.app, api_main.DB_PATH)
+
+    if args.recover_stale:
+        if not args.workers_stopped:
+            parser.error("--recover-stale requires --workers-stopped; stop all workers first")
+        print("Stale jobs interrupted:",
+              recover_stale_jobs(args.stale_seconds, workers_stopped=True))
+        return
 
     if args.stale_report:
         print(json.dumps({
