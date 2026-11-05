@@ -8,7 +8,7 @@ import json
 import sqlite3
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
@@ -303,6 +303,27 @@ def run_one(worker_id):
     return True
 
 
+def stale_running_jobs(threshold_seconds=90, at=None):
+    """Read-only stale-heartbeat diagnostic; never assume a worker is dead.
+
+    A heartbeat can be delayed by a busy database or a paused process.
+    Operators must stop/check workers before invoking explicit recovery.
+    """
+    if threshold_seconds <= 0:
+        raise ValueError("threshold_seconds must be positive")
+    reference = at or datetime.now(timezone.utc)
+    cutoff = (reference - timedelta(seconds=threshold_seconds)).isoformat()
+    with connect() as db:
+        rows = db.execute("""
+            SELECT id, case_id, worker_id, heartbeat_at, updated_at
+            FROM investigation_jobs
+            WHERE status='running'
+              AND (heartbeat_at IS NULL OR heartbeat_at < ?)
+            ORDER BY created_at, id
+        """, (cutoff,)).fetchall()
+    return [dict(row) for row in rows]
+
+
 def mark_interrupted_jobs():
     """Explicit operator recovery after confirming workers are stopped.
 
@@ -340,6 +361,17 @@ def main():
         help="Mark interrupted jobs after all old workers are stopped"
     )
     parser.add_argument(
+        "--stale-report",
+        action="store_true",
+        help="List stale running jobs without modifying jobs or locks"
+    )
+    parser.add_argument(
+        "--stale-seconds",
+        type=int,
+        default=90,
+        help="Heartbeat age threshold for --stale-report (default: 90)"
+    )
+    parser.add_argument(
         "--once",
         action="store_true",
         help="Process at most one queued job"
@@ -353,6 +385,13 @@ def main():
     install_if_needed = DB_PATH is None
     if install_if_needed:
         install(api_main.app, api_main.DB_PATH)
+
+    if args.stale_report:
+        print(json.dumps({
+            "stale_running_jobs": stale_running_jobs(args.stale_seconds),
+            "warning": "Stale heartbeat does not prove worker death; do not recover while a worker may still be running."
+        }, indent=2))
+        return
 
     if args.recover:
         print(
