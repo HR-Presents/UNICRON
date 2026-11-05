@@ -32,7 +32,7 @@ function CameraDirector({target}:{target:string}) {
     const agent=locations.find(d=>d[1]===target);
     const point=department?.pos ?? agent?.[0];
     if(!point)return;
-    const next={x:point[0]+8,y:point[1]+10,z:point[2]+12};
+    const next={x:point[0]+9,y:point[1]+13,z:point[2]+14};
     const animation=gsap.to(camera.position,{...next,duration:1.35,ease:"power3.inOut",onUpdate:()=>{camera.lookAt(point[0],1.1,point[2]);}});
     const orbit=controls as {target?:THREE.Vector3;update?:()=>void}|undefined;
     if(orbit?.target)gsap.to(orbit.target,{x:point[0],y:1.1,z:point[2],duration:1.35,ease:"power3.inOut",onUpdate:()=>orbit.update?.()});
@@ -42,45 +42,34 @@ function CameraDirector({target}:{target:string}) {
 }
 /* Architectural massing is deliberately stylized; no photorealistic asset claim. */
 function Building({name,pos,height,selected,onClick}:{name:string;pos:readonly[number,number,number];color:string;height:number;selected:boolean;onClick:()=>void}){
-  const levels=5, width=4.5, depth=3.8;
-  return <group position={[pos[0],0,pos[2]]} onClick={(e:ThreeEvent<MouseEvent>)=>{e.stopPropagation();onClick();}}>
-    <mesh receiveShadow position={[0,.09,0]}><boxGeometry args={[width+1.2,.18,depth+1.2]}/><meshStandardMaterial color="#d4d1c5" roughness={.92}/></mesh>
-    <mesh castShadow receiveShadow position={[0,height/2+.24,0]}><boxGeometry args={[width,height,depth]}/><meshStandardMaterial color={selected?"#c3c5b7":"#e2dfd5"} roughness={.82} metalness={.04}/></mesh>
-    <mesh castShadow position={[0,height+.3,0]}><boxGeometry args={[width+.32,.18,depth+.32]}/><meshStandardMaterial color="#b3b4a7" roughness={.75}/></mesh>
-    {Array.from({length:levels},(_,floor)=><group key={floor}>
-      {Array.from({length:6},(_,column)=><group key={column}>
-        <mesh position={[-1.82+column*.73,.78+floor*(height-.65)/levels,depth/2+.014]}>
-          <planeGeometry args={[.46,.37]}/><meshStandardMaterial color="#587078" metalness={.32} roughness={.28}/>
-        </mesh>
-        <mesh position={[-1.82+column*.73,.78+floor*(height-.65)/levels,-depth/2-.014]} rotation={[0,Math.PI,0]}>
-          <planeGeometry args={[.46,.37]}/><meshStandardMaterial color="#526b71" metalness={.32} roughness={.3}/>
-        </mesh>
-      </group>)}
-      <mesh position={[0,.53+floor*(height-.65)/levels,depth/2+.055]}><boxGeometry args={[width+.12,.07,.12]}/><meshStandardMaterial color="#c4c2b6" roughness={.9}/></mesh>
-    </group>)}
-    {[-1,1].map(side=><group key={side}>
-      <mesh castShadow position={[side*(width/2+.12),height/2+.2,0]}><boxGeometry args={[.26,height+.5,depth+.22]}/><meshStandardMaterial color="#c7c6b9" roughness={.85}/></mesh>
-      <mesh position={[side*(width/2+.26),height/2+.1,0]} rotation={[0,side*Math.PI/2,0]}><planeGeometry args={[depth-.65,height-.65]}/><meshStandardMaterial color="#b9c2bd" roughness={.76}/></mesh>
-    </group>)}
-    <mesh castShadow position={[0,.56,depth/2+.42]}><boxGeometry args={[1.5,1.1,.8]}/><meshStandardMaterial color="#9baca9" metalness={.28} roughness={.42}/></mesh>
-    <mesh position={[0,.62,depth/2+.84]}><planeGeometry args={[1.05,.82]}/><meshStandardMaterial color="#2f5058" metalness={.4} roughness={.25}/></mesh>
-    <Text position={[0,height+1.04,0]} fontSize={.37} color="#344f4b" anchorX="center" anchorY="middle" outlineWidth={.008} outlineColor="#f3f1e8">{name}</Text>
-    {selected&&<mesh position={[0,.02,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[3.2,3.25,64]}/><meshBasicMaterial color="#3e8173" transparent opacity={.95}/></mesh>}
-  </group>;
+ const width=4.8,depth=4.2;
+ const towerHeight=height*1.55;
+ return <group position={[pos[0],0,pos[2]]} onClick={(e:ThreeEvent<MouseEvent>)=>{e.stopPropagation();onClick();}}>
+ <mesh receiveShadow position={[0,.14,0]}><boxGeometry args={[7,.28,6.2]}/><meshStandardMaterial color="#aeb8b2" roughness={.88}/></mesh>
+ <mesh castShadow receiveShadow position={[0,towerHeight/2+.32,0]}><boxGeometry args={[width,towerHeight,depth]}/><meshPhysicalMaterial color="#879e9e" metalness={.52} roughness={.23} clearcoat={.65} clearcoatRoughness={.18}/></mesh>
+ <mesh castShadow receiveShadow position={[0,towerHeight+.4,0]}><boxGeometry args={[width+.4,.18,depth+.4]}/><meshStandardMaterial color="#d1d6cd" metalness={.38} roughness={.32}/></mesh>
+ {Array.from({length:9},(_,floor)=><group key={floor}>
+ <mesh position={[0,.72+floor*towerHeight/9,depth/2+.04]}><boxGeometry args={[width+.04,.065,.09]}/><meshStandardMaterial color="#d9e0d9" metalness={.7} roughness={.3}/></mesh>
+ <mesh position={[0,.72+floor*towerHeight/9,-depth/2-.04]}><boxGeometry args={[width+.04,.065,.09]}/><meshStandardMaterial color="#d9e0d9" metalness={.7} roughness={.3}/></mesh>
+ </group>)}
+ {Array.from({length:8},(_,i)=><group key={i}>
+ <mesh position={[-width/2+(i+1)*width/9,towerHeight/2+.32,depth/2+.065]}><boxGeometry args={[.055,towerHeight,.09]}/><meshStandardMaterial color="#dbe2db" metalness={.72} roughness={.28}/></mesh>
+ <mesh position={[-width/2+(i+1)*width/9,towerHeight/2+.32,-depth/2-.065]}><boxGeometry args={[.055,towerHeight,.09]}/><meshStandardMaterial color="#dbe2db" metalness={.72} roughness={.28}/></mesh>
+ </group>)}
+ <mesh castShadow position={[0,.75,depth/2+.6]}><boxGeometry args={[2.6,1.4,1.2]}/><meshPhysicalMaterial color="#dce4df" metalness={.42} roughness={.25} transmission={.06}/></mesh>
+ <mesh position={[0,.8,depth/2+1.22]}><planeGeometry args={[2,1]}/><meshStandardMaterial color="#193e42" metalness={.4} roughness={.21}/></mesh>
+ <Text position={[0,towerHeight+1.15,0]} fontSize={.38} color="#ecf2e9" anchorX="center" outlineWidth={.012} outlineColor="#263e3c">{name}</Text>
+ {selected&&<mesh position={[0,.045,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[3.65,3.73,72]}/><meshBasicMaterial color="#b1eacb" transparent opacity={.9}/></mesh>}
+ </group>;
 }
 function Agent({name,pos,status,selected,onClick}:{name:string;pos:[number,number,number];status:string;selected:boolean;onClick:()=>void}){
-  const mesh=useRef<THREE.Group>(null);
-  const active=activeStatus(status);
-  useFrame(({clock})=>{if(mesh.current)mesh.current.position.y=pos[1]+Math.sin(clock.elapsedTime*1.7+pos[0])*.11;});
-  return <group position={[pos[0],0,pos[2]]} onClick={(e:ThreeEvent<MouseEvent>)=>{e.stopPropagation();onClick();}}>
-    <group ref={mesh} position={[0,pos[1],0]}>
-      <mesh castShadow><icosahedronGeometry args={[.47,1]}/><meshPhysicalMaterial color={active?"#4c9484":"#6b8381"} metalness={.65} roughness={.18} transmission={.08} emissive={active?"#267d72":"#193b58"} emissiveIntensity={selected?.95:.3}/></mesh>
-      <mesh position={[0,-.7,0]}><cylinderGeometry args={[.09,.25,.7,12]}/><meshStandardMaterial color="#8aaac7" metalness={.65} roughness={.35}/></mesh>
-      <mesh position={[0,.65,0]}><torusGeometry args={[.6,.025,8,40]}/><meshBasicMaterial color={selected?"#386d63":"#7b9890"}/></mesh>
-    </group>
-    <mesh position={[0,.07,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[.62,40]}/><meshBasicMaterial color={active?"#4c9484":"#7d9b91"} transparent opacity={.3}/></mesh>
-    <Html position={[0,2.4,0]} center distanceFactor={17} style={{pointerEvents:"none"}}><div className="agentLabel"><strong>{name}</strong><span>{status==="idle"?"AWAITING":status.replaceAll("_"," ").toUpperCase()}</span></div></Html>
-  </group>;
+ const active=activeStatus(status),processing=status==="running"||status==="in_progress";
+ return <group position={[pos[0],0,pos[2]]} onClick={(e:ThreeEvent<MouseEvent>)=>{e.stopPropagation();onClick();}}>
+ <mesh castShadow position={[0,.22,0]}><cylinderGeometry args={[.52,.64,.35,32]}/><meshStandardMaterial color="#2b4845" metalness={.65} roughness={.3}/></mesh>
+ <mesh position={[0,.45,0]}><cylinderGeometry args={[.32,.32,.12,32]}/><meshStandardMaterial color={active?"#9ddbc1":processing?"#e9c88c":"#8ba5a1"} emissive={active?"#447e6b":"#253c3a"} emissiveIntensity={selected?.65:.2}/></mesh>
+ <mesh position={[0,.53,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.43,.49,48]}/><meshBasicMaterial color={selected?"#c7f6d7":"#789d91"}/></mesh>
+ <Html position={[0,1.3,0]} center distanceFactor={17} style={{pointerEvents:"none"}}><div className="agentLabel"><strong>{name}</strong><span>{status==="idle"?"AWAITING":status.replaceAll("_"," ").toUpperCase()}</span></div></Html>
+ </group>;
 }
 function Connections({nodes}:{nodes:TwinNode[]}){
   return <>{locations.slice(0,-1).map(([p],i)=>{
@@ -110,14 +99,14 @@ function World({props}:{props:Props}){
     return nodes.map(n=>({...n,status:seen.get(n.name)?.status??"idle"}));
   },[nodes,events,replayIndex]);
   return <>
-    <color attach="background" args={["#e8e7dd"]}/>
-    <fog attach="fog" args={["#e8e7dd",31,80]}/>
-    <ambientLight intensity={.85}/><hemisphereLight args={["#f7f4e9","#899b92",1.6]}/>
-    <directionalLight position={[8,16,8]} intensity={2.2} castShadow shadow-mapSize={[2048,2048]} shadow-camera-left={-25} shadow-camera-right={25} shadow-camera-top={25} shadow-camera-bottom={-25}/>
+    <color attach="background" args={["#b8c9c5"]}/>
+    <fog attach="fog" args={["#b8c9c5",34,85]}/>
+    <ambientLight intensity={.52}/><hemisphereLight args={["#e9f3ed","#536d6a",1.25]}/>
+    <directionalLight position={[8,16,8]} intensity={2.8} castShadow shadow-mapSize={[2048,2048]} shadow-camera-left={-25} shadow-camera-right={25} shadow-camera-top={25} shadow-camera-bottom={-25}/>
     <Suspense fallback={null}><Environment preset="city" environmentIntensity={.18}/></Suspense>
     <group>
-      <mesh receiveShadow position={[0,-.35,0]}><boxGeometry args={[29,.65,25]}/><meshStandardMaterial color="#d2d1c6" roughness={.96}/></mesh>
-      <gridHelper args={[28,28,"#b6c0b5","#c6ccc1"]} position={[0,.015,0]}/>
+      <mesh receiveShadow position={[0,-.35,0]}><boxGeometry args={[32,.65,28]}/><meshStandardMaterial color="#687f78" roughness={.96}/></mesh>
+      <gridHelper args={[32,32,"#92a9a0","#82998f"]} position={[0,.015,0]}/>
       {departments.map(d=><Building key={d.name} {...d} selected={selectedDepartment===d.name} onClick={()=>onDepartment(d.name)}/>)}
       {locations.map(([pos,name],i)=><Agent key={name} name={name} pos={pos} status={visible[i]?.status??"idle"} selected={selectedAgent===name} onClick={()=>onAgent(name)}/>)}
       <RequestTokens cases={cases} selected={selectedCase} onCase={onCase}/>
@@ -125,11 +114,11 @@ function World({props}:{props:Props}){
     </group>
     <ContactShadows position={[0,.02,0]} opacity={.35} scale={26} blur={2.5} far={13}/>
     <OrbitControls makeDefault enableDamping dampingFactor={.07} minDistance={9} maxDistance={43} maxPolarAngle={Math.PI*.48} minPolarAngle={.25} target={[0,1,0]}/>
-    <CameraDirector target={selectedDepartment||selectedAgent}/>
+    <CameraDirector target={selectedDepartment}/>
     <EffectComposer multisampling={0}><Vignette eskil={false} offset={.24} darkness={.16}/></EffectComposer>
     {!live&&<Html fullscreen style={{pointerEvents:"none"}}><div className="twinWatermark">VISUALIZATION OF RECORDED STATE · NOT A LIVE GOVERNMENT SYSTEM</div></Html>}
   </>;
 }
 export default function DigitalTwin(props:Props){
-  return <div className="twinCanvas"><Canvas shadows dpr={[1,1.65]} camera={{position:[17,19,23],fov:44,near:.1,far:130}} gl={{antialias:true,powerPreference:"high-performance"}}><World props={props}/></Canvas></div>;
+  return <div className="twinCanvas"><Canvas shadows dpr={[1,1.65]} camera={{position:[19,24,28],fov:43,near:.1,far:130}} gl={{antialias:true,powerPreference:"high-performance"}}><World props={props}/></Canvas></div>;
 }
