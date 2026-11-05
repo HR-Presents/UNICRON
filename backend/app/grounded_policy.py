@@ -174,8 +174,7 @@ def verify_draft_claims(draft, model_call):
         'Return one assessment for every claim index. When uncertain choose '
         'insufficient_evidence. Return only the requested JSON.'
     )
-    try:
-        raw = model_call(system, context, schema, max_tokens=480)
+    def validate_assessments(raw):
         if not isinstance(raw, dict) or not isinstance(raw.get('assessments'), list):
             raise ValueError('Invalid verifier structure')
         rows = [EvidenceVerdict.model_validate(item) for item in raw['assessments']]
@@ -185,10 +184,41 @@ def verify_draft_claims(draft, model_call):
         if any(item.verdict not in {'supported', 'contradicted', 'insufficient_evidence'}
                for item in rows):
             raise ValueError('Invalid verifier verdict')
-    except Exception:
-        # Never store model output or error messages that may contain evidence.
+        return rows
+
+    rows = None
+    for attempt in range(2):
+        try:
+            if attempt:
+                # Smaller retry helps constrained local models produce complete JSON.
+                # All cited excerpts remain included; only excerpt length is reduced.
+                retry_context = {'claims': [
+                    {**claim, 'cited_excerpts': [
+                        {**excerpt, 'text': excerpt['text'][:220]}
+                        for excerpt in claim['cited_excerpts']]}
+                    for claim in context['claims']]}
+                retry_system = system + (
+                    ' Retry with exactly one assessment per claim. '
+                    'Use only supported, contradicted, or insufficient_evidence. '
+                    'If uncertain, choose insufficient_evidence.')
+                raw = model_call(retry_system, retry_context, schema, max_tokens=640)
+            else:
+                raw = model_call(system, context, schema, max_tokens=480)
+            rows = validate_assessments(raw)
+            break
+        except Exception:
+            # Model transport, parsing and schema errors are never persisted.
+            continue
+    if rows is None:
         draft['semantic_entailment'] = 'verification_unavailable'
         draft['model_evidence_assessments'] = []
+        draft['claim_risk_flags'].append({
+            'claim_index': None, 'code': 'semantic_verifier_unavailable',
+            'action': 'qualified_review_required',
+            'reason': 'Independent model evidence assessment failed validation or was unavailable.'})
+        return draft
+
+    draft['model_evidence_assessments'] = []
         draft['claim_risk_flags'].append({
             'claim_index': None, 'code': 'semantic_verifier_unavailable',
             'action': 'qualified_review_required',
