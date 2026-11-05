@@ -52,6 +52,35 @@ class VerifierDiagnosticsTests(unittest.TestCase):
         self.assertEqual(result['verifier_diagnostics']['outcome'],
                          'model_assessed_not_verified')
 
+    def test_realistic_long_reason_is_accepted(self):
+        reason = (
+            'The excerpts from the EU and UK both discuss transparency in '
+            'public-sector AI systems, with the EU emphasizing appropriate '
+            'transparency for user understanding and the UK highlighting the '
+            'need for publication of information about algorithmic tools '
+            'to support transparency.'
+        )
+        self.assertGreater(len(reason), 250)
+        def model(*args, **kwargs):
+            return {'assessments': [{'claim_index': 0, 'verdict': 'supported',
+                                    'reason': reason}]}
+        result = verify_draft_claims(sample(), model)
+        self.assertEqual(result['verifier_diagnostics']['attempt_count'], 1)
+        self.assertEqual(result['semantic_entailment'], 'model_assessed_not_verified')
+        self.assertEqual(result['model_evidence_assessments'][0]['reason'], reason)
+        self.assertTrue(result['human_review_required'])
+        self.assertFalse(result['automated_approval_permitted'])
+
+    def test_excessively_long_reason_still_fails_closed(self):
+        def model(*args, **kwargs):
+            return {'assessments': [{'claim_index': 0, 'verdict': 'supported',
+                                    'reason': 'x' * 501}]}
+        result = verify_draft_claims(sample(), model)
+        self.assertEqual(result['semantic_entailment'], 'verification_unavailable')
+        self.assertEqual(result['verifier_diagnostics']['attempt_count'], 2)
+        self.assertEqual(result['model_evidence_assessments'], [])
+        self.assertFalse(result['automated_approval_permitted'])
+
     def test_first_attempt_success(self):
         def model(*args, **kwargs):
             return {'assessments': [{'claim_index': 0, 'verdict': 'supported',
