@@ -409,7 +409,7 @@ def _execute_workflow(case_id, run_id, checkpoint):
             scenario_error = exc
     if scenario is None:
         raise HTTPException(
-            502, f'Scenario Evaluator failed after 2 attempts: {str(scenario_error)[:350]}'
+            502, f'Scenario Evaluator failed after 2 attempts: {type(scenario_error).__name__}'
         ) from scenario_error
     stages.append({'agent': 'Scenario Evaluator', 'status': 'completed', 'result': scenario,
                    'note': 'Hypothetical only; not a prediction or verified operational outcome.'})
@@ -429,7 +429,7 @@ def _execute_workflow(case_id, run_id, checkpoint):
                 '{"case_summary":"string","recommended_next_steps":["string"],"unresolved_questions":["string"]}'),
             ("recommended_next_steps", "unresolved_questions"))).model_dump()
     except (ValidationError, HTTPException, ValueError) as exc:
-        raise HTTPException(502, f'Review & Synthesis failed; no investigation saved: {str(exc)[:350]}') from exc
+        raise HTTPException(502, f'Review & Synthesis failed; no investigation saved: {type(exc).__name__}') from exc
     stages.append({'agent': 'Review & Synthesis', 'status': 'completed', 'result': synthesis,
                    'note': 'Advisory only. Human approval required.'})
 
