@@ -15,7 +15,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 from .policy_intelligence import policy_stage, benchmark_stage
 from .knowledge_retrieval import retrieve_knowledge
-from .grounded_policy import generate_draft
+from .grounded_policy import generate_draft, verify_draft_claims
 
 router = APIRouter()
 DB_PATH = None
@@ -350,7 +350,10 @@ def _execute_workflow(case_id, run_id, checkpoint):
     matrix = benchmark['result'].get('evidence_matrix')
     if matrix and benchmark['status'] == 'review_required':
         try:
-            benchmark['result']['ai_comparison_draft'] = generate_draft(matrix, model_json)
+            draft = generate_draft(matrix, model_json)
+            benchmark['result']['ai_comparison_draft'] = (
+                verify_draft_claims(draft, model_json) if draft is not None else None
+            )
             benchmark['result']['ai_analysis_status'] = 'review_required'
         except (ValidationError, ValueError, HTTPException, TypeError) as exc:
             # Fail closed: preserve deterministic evidence and record a bounded error.
