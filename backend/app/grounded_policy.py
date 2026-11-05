@@ -101,5 +101,27 @@ def generate_draft(matrix, model_call):
               'Each comparison and recommendation must cite at least two DIFFERENT jurisdictions with exact citation identifiers. '
               'If insufficient evidence, return empty lists. Recommendations are proposals for human assessment, not legal advice.')
     schema = '{"comparisons":[{"observation":"string","citations":["id1","id2"],"classification":"requires_review"}],"recommendation_drafts":[{"action":"string","citations":["id1","id2"],"rationale":"string"}],"unresolved_questions":["string"]}'
-    raw = model_call(system, {'evidence': evidence}, schema, max_tokens=850)
+    # Retain the complete evidence matrix for citation validation, but send
+    # only distinct, balanced excerpts to small-context local language models.
+    selected = []
+    for jurisdiction in matrix['jurisdictions']:
+        items = [item for item in evidence
+                 if item['jurisdiction'] == jurisdiction['jurisdiction']]
+        seen = set()
+        for item in items:
+            excerpt = item['verbatim_excerpt'].strip()
+            fingerprint = ' '.join(excerpt.casefold().split())
+            if not excerpt or fingerprint in seen:
+                continue
+            seen.add(fingerprint)
+            selected.append({
+                'jurisdiction': item['jurisdiction'],
+                'citation': item['citation'],
+                'verbatim_excerpt': excerpt[:360],
+            })
+            if len(seen) >= 3:
+                break
+    if len({item['jurisdiction'] for item in selected}) < 2:
+        return None
+    raw = model_call(system, {'evidence': selected}, schema, max_tokens=650)
     return validate_draft(raw, matrix)
