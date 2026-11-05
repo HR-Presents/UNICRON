@@ -123,5 +123,24 @@ def generate_draft(matrix, model_call):
                 break
     if len({item['jurisdiction'] for item in selected}) < 2:
         return None
-    raw = model_call(system, {'evidence': selected}, schema, max_tokens=650)
-    return validate_draft(raw, matrix)
+    # Small local models occasionally invent citation identifiers or return
+    # incomplete JSON. Retry once with a smaller, explicit citation allowlist.
+    # Never relax validation or convert an invalid draft into a policy finding.
+    last_error = None
+    for attempt in range(2):
+        prompt = system
+        if attempt:
+            allowed = ', '.join(item['citation'] for item in selected)
+            prompt += (
+                ' Previous output failed validation. Use ONLY these exact '
+                'citation identifiers: ' + allowed +
+                '. Every nonempty comparison or recommendation MUST cite '
+                'two distinct jurisdictions. Return empty arrays when unsure.'
+            )
+        try:
+            raw = model_call(prompt, {'evidence': selected}, schema, max_tokens=650)
+            return validate_draft(raw, matrix)
+        except (ValueError, ValidationError) as exc:
+            last_error = exc
+    raise ValueError('Policy draft invalid after two attempts: ' +
+                     str(last_error)[:250]) from last_error
