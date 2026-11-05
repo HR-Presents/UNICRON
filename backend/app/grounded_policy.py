@@ -53,6 +53,43 @@ def assess_claim_risks(draft, evidence):
     return risks
 
 
+def assess_citation_support(draft, evidence):
+    """Per-claim lexical evidence triage, never semantic verification.
+
+    An exact citation can be valid while its passage is irrelevant. We record
+    lexical overlap to help reviewers find weakly supported claims, but never
+    interpret overlap as proof of entailment or legal applicability.
+    """
+    by_citation = {item['citation']: item for item in evidence}
+    stopwords = {'about', 'after', 'also', 'among', 'and', 'are', 'been',
+                 'between', 'could', 'from', 'have', 'into', 'more', 'must',
+                 'only', 'other', 'should', 'such', 'that', 'their', 'there',
+                 'these', 'this', 'those', 'under', 'which', 'with', 'would'}
+    def tokens(value):
+        return {word for word in re.findall(r"[a-z0-9]{4,}", value.casefold())
+                if word not in stopwords}
+
+    assessments = []
+    for index, claim in enumerate(draft.comparisons):
+        terms = tokens(claim.observation)
+        cited = [by_citation[c] for c in claim.citations]
+                 if c in by_citation]
+        passage_tokens = [tokens(item['verbatim_excerpt']) for item in cited]
+        union = set().union(*passage_tokens) if passage_tokens else set()
+        overlap = len(terms & union) / len(terms) if terms else 0.0
+        weak = not terms or overlap < 0.35 or any(
+            not (terms & passage) for passage in passage_tokens)
+        assessments.append({
+            'claim_index': index,
+            'citations': list(claim.citations),
+            'lexical_overlap_ratio': round(overlap, 3),
+            'status': 'needs_evidence_review' if weak else 'lexical_overlap_only',
+            'semantic_entailment': 'not_verified',
+            'human_review_required': True,
+        })
+    return assessments
+
+
 def validate_draft(raw, matrix):
     """Fail closed on citations, jurisdiction coverage, and unsupported assertions.
 
@@ -74,9 +111,17 @@ def validate_draft(raw, matrix):
         if len({lookup[citation] for citation in item.citations}) < 2:
             raise ValueError('Comparison must cite two distinct jurisdictions')
     risks = assess_claim_risks(draft, evidence)
+    support = assess_citation_support(draft, evidence)
+    for item in support:
+        if item['status'] == 'needs_evidence_review':
+            risks.append({'claim_index': item['claim_index'],
+                          'code': 'weak_lexical_evidence_alignment',
+                          'action': 'qualified_review_required',
+                          'reason': 'Cited text has limited lexical overlap with the claim; semantic support is unverified.'})
     return {
         'status': 'review_required',
         'claim_risk_flags': risks,
+        'claim_evidence_assessments': support,
         'claim_grounding_status': 'flagged_for_review' if risks else 'not_semantically_verified',
         'approved_policy_findings': [],
         'automated_approval_permitted': False,
@@ -88,7 +133,7 @@ def validate_draft(raw, matrix):
         'human_review_required': True,
         'legal_applicability': 'not_established',
         'semantic_entailment': 'not_verified',
-        'limitations': 'Citations were checked for membership and cross-jurisdiction coverage; a conservative lexical risk screen flags selected overclaims. Neither check verifies semantic entailment, applicability, currency or legal accuracy. Qualified review remains required.'
+        'limitations': 'Citations were checked for membership and cross-jurisdiction coverage; a conservative lexical risk screen flags selected overclaims; per-claim lexical evidence triage identifies weak citation alignment. Neither check verifies semantic entailment, applicability, currency or legal accuracy. Qualified review remains required.'
     }
 
 def generate_draft(matrix, model_call):
