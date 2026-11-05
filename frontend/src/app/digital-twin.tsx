@@ -2,9 +2,8 @@
 
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, ThreeEvent, useFrame, useThree } from "@react-three/fiber";
-import { ContactShadows, Environment, Html, OrbitControls, RoundedBox, Text } from "@react-three/drei";
-import { Physics, RigidBody } from "@react-three/rapier";
-import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
+import { ContactShadows, Environment, Html, OrbitControls, Text } from "@react-three/drei";
+import { EffectComposer, Vignette } from "@react-three/postprocessing";
 import gsap from "gsap";
 import * as THREE from "three";
 
@@ -41,19 +40,32 @@ function CameraDirector({target}:{target:string}) {
   },[target,camera,controls]);
   return null;
 }
-function Building({name,pos,color,height,selected,onClick}:{name:string;pos:readonly[number,number,number];color:string;height:number;selected:boolean;onClick:()=>void}){
-  return <group position={pos as unknown as [number,number,number]} onClick={(e:ThreeEvent<MouseEvent>)=>{e.stopPropagation();onClick();}}>
-    <RigidBody type="fixed" colliders="cuboid">
-      <RoundedBox args={[4,height,3.4]} radius={0.12} smoothness={4} position={[0,height/2,0]} castShadow receiveShadow>
-        <meshStandardMaterial color={selected?"#42678b":"#172d43"} metalness={0.64} roughness={0.31}/>
-      </RoundedBox>
-    </RigidBody>
-    {Array.from({length:3},(_,floor)=>Array.from({length:5},(_,column)=><mesh key={floor+"-"+column} position={[-1.55+column*.77,.85+floor*(height/3.6),1.72]}>
-      <planeGeometry args={[.48,.28]}/><meshStandardMaterial color={color} emissive={color} emissiveIntensity={selected?1.2:.4} metalness={.25} roughness={.28}/>
-    </mesh>))}
-    <mesh position={[0,height+.08,0]}><boxGeometry args={[4.25,.14,3.65]}/><meshStandardMaterial color={color} metalness={.7} roughness={.24}/></mesh>
-    <Text position={[0,height+.75,0]} fontSize={.45} color="#e7f2ff" anchorX="center" anchorY="middle" outlineWidth={.014} outlineColor="#06121d">{name}</Text>
-    {selected&&<mesh position={[0,.05,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[2.6,2.8,64]}/><meshBasicMaterial color="#62e9d1" transparent opacity={.9}/></mesh>}
+/* Architectural massing is deliberately stylized; no photorealistic asset claim. */
+function Building({name,pos,height,selected,onClick}:{name:string;pos:readonly[number,number,number];color:string;height:number;selected:boolean;onClick:()=>void}){
+  const levels=5, width=4.5, depth=3.8;
+  return <group position={[pos[0],0,pos[2]]} onClick={(e:ThreeEvent<MouseEvent>)=>{e.stopPropagation();onClick();}}>
+    <mesh receiveShadow position={[0,.09,0]}><boxGeometry args={[width+1.2,.18,depth+1.2]}/><meshStandardMaterial color="#d4d1c5" roughness={.92}/></mesh>
+    <mesh castShadow receiveShadow position={[0,height/2+.24,0]}><boxGeometry args={[width,height,depth]}/><meshStandardMaterial color={selected?"#c3c5b7":"#e2dfd5"} roughness={.82} metalness={.04}/></mesh>
+    <mesh castShadow position={[0,height+.3,0]}><boxGeometry args={[width+.32,.18,depth+.32]}/><meshStandardMaterial color="#b3b4a7" roughness={.75}/></mesh>
+    {Array.from({length:levels},(_,floor)=><group key={floor}>
+      {Array.from({length:6},(_,column)=><group key={column}>
+        <mesh position={[-1.82+column*.73,.78+floor*(height-.65)/levels,depth/2+.014]}>
+          <planeGeometry args={[.46,.37]}/><meshStandardMaterial color="#587078" metalness={.32} roughness={.28}/>
+        </mesh>
+        <mesh position={[-1.82+column*.73,.78+floor*(height-.65)/levels,-depth/2-.014]} rotation={[0,Math.PI,0]}>
+          <planeGeometry args={[.46,.37]}/><meshStandardMaterial color="#526b71" metalness={.32} roughness={.3}/>
+        </mesh>
+      </group>)}
+      <mesh position={[0,.53+floor*(height-.65)/levels,depth/2+.055]}><boxGeometry args={[width+.12,.07,.12]}/><meshStandardMaterial color="#c4c2b6" roughness={.9}/></mesh>
+    </group>)}
+    {[-1,1].map(side=><group key={side}>
+      <mesh castShadow position={[side*(width/2+.12),height/2+.2,0]}><boxGeometry args={[.26,height+.5,depth+.22]}/><meshStandardMaterial color="#c7c6b9" roughness={.85}/></mesh>
+      <mesh position={[side*(width/2+.26),height/2+.1,0]} rotation={[0,side*Math.PI/2,0]}><planeGeometry args={[depth-.65,height-.65]}/><meshStandardMaterial color="#b9c2bd" roughness={.76}/></mesh>
+    </group>)}
+    <mesh castShadow position={[0,.56,depth/2+.42]}><boxGeometry args={[1.5,1.1,.8]}/><meshStandardMaterial color="#9baca9" metalness={.28} roughness={.42}/></mesh>
+    <mesh position={[0,.62,depth/2+.84]}><planeGeometry args={[1.05,.82]}/><meshStandardMaterial color="#2f5058" metalness={.4} roughness={.25}/></mesh>
+    <Text position={[0,height+1.04,0]} fontSize={.37} color="#344f4b" anchorX="center" anchorY="middle" outlineWidth={.008} outlineColor="#f3f1e8">{name}</Text>
+    {selected&&<mesh position={[0,.02,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[3.2,3.25,64]}/><meshBasicMaterial color="#3e8173" transparent opacity={.95}/></mesh>}
   </group>;
 }
 function Agent({name,pos,status,selected,onClick}:{name:string;pos:[number,number,number];status:string;selected:boolean;onClick:()=>void}){
@@ -62,31 +74,22 @@ function Agent({name,pos,status,selected,onClick}:{name:string;pos:[number,numbe
   useFrame(({clock})=>{if(mesh.current)mesh.current.position.y=pos[1]+Math.sin(clock.elapsedTime*1.7+pos[0])*.11;});
   return <group position={[pos[0],0,pos[2]]} onClick={(e:ThreeEvent<MouseEvent>)=>{e.stopPropagation();onClick();}}>
     <group ref={mesh} position={[0,pos[1],0]}>
-      <mesh castShadow><icosahedronGeometry args={[.47,1]}/><meshPhysicalMaterial color={active?"#6fe9d0":"#88a9c9"} metalness={.65} roughness={.18} transmission={.08} emissive={active?"#267d72":"#193b58"} emissiveIntensity={selected?.95:.3}/></mesh>
+      <mesh castShadow><icosahedronGeometry args={[.47,1]}/><meshPhysicalMaterial color={active?"#4c9484":"#6b8381"} metalness={.65} roughness={.18} transmission={.08} emissive={active?"#267d72":"#193b58"} emissiveIntensity={selected?.95:.3}/></mesh>
       <mesh position={[0,-.7,0]}><cylinderGeometry args={[.09,.25,.7,12]}/><meshStandardMaterial color="#8aaac7" metalness={.65} roughness={.35}/></mesh>
-      <mesh position={[0,.65,0]}><torusGeometry args={[.6,.025,8,40]}/><meshBasicMaterial color={selected?"#d3fff5":"#5d8bad"}/></mesh>
+      <mesh position={[0,.65,0]}><torusGeometry args={[.6,.025,8,40]}/><meshBasicMaterial color={selected?"#386d63":"#7b9890"}/></mesh>
     </group>
-    <mesh position={[0,.07,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[.62,40]}/><meshBasicMaterial color={active?"#3bb69e":"#1b547b"} transparent opacity={.3}/></mesh>
+    <mesh position={[0,.07,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[.62,40]}/><meshBasicMaterial color={active?"#4c9484":"#7d9b91"} transparent opacity={.3}/></mesh>
     <Html position={[0,2.4,0]} center distanceFactor={17} style={{pointerEvents:"none"}}><div className="agentLabel"><strong>{name}</strong><span>{status==="idle"?"AWAITING":status.replaceAll("_"," ").toUpperCase()}</span></div></Html>
   </group>;
 }
-function Courier({from,to,progress}:{from:[number,number,number];to:[number,number,number];progress:number}){
-  const ref=useRef<THREE.Mesh>(null);
-  useFrame(({clock})=>{
-    if(!ref.current)return;
-    const t=(clock.elapsedTime*.22+progress)%1;
-    ref.current.position.set(THREE.MathUtils.lerp(from[0],to[0],t),1.1+Math.sin(t*Math.PI)*1.5,THREE.MathUtils.lerp(from[2],to[2],t));
-    ref.current.rotation.y+=.015;
-  });
-  return <mesh ref={ref}><octahedronGeometry args={[.16,0]}/><meshStandardMaterial color="#75ffdd" emissive="#1abf9f" emissiveIntensity={2} metalness={.4} roughness={.2}/></mesh>;
-}
 function Connections({nodes}:{nodes:TwinNode[]}){
   return <>{locations.slice(0,-1).map(([p],i)=>{
-    const to=locations[i+1][0];const color=activeStatus(nodes[i]?.status??"idle")?"#4de0c0":"#36516b";
-    const start=new THREE.Vector3(p[0],.32,p[2]);const end=new THREE.Vector3(to[0],.32,to[2]);
-    const points=[start,new THREE.Vector3((p[0]+to[0])/2,.32,(p[2]+to[2])/2),end];
-    const geometry=new THREE.BufferGeometry().setFromPoints(points);
-    return <group key={i}><lineSegments geometry={geometry}><lineBasicMaterial color={color} transparent opacity={.9}/></lineSegments>{activeStatus(nodes[i]?.status??"idle")&&<Courier from={p} to={to} progress={i*.13}/>}</group>;
+    const to=locations[i+1][0];
+    const active=activeStatus(nodes[i]?.status??"idle");
+    const points=[new THREE.Vector3(p[0],.12,p[2]),new THREE.Vector3(to[0],.12,to[2])];
+    return <lineSegments key={i} geometry={new THREE.BufferGeometry().setFromPoints(points)}>
+      <lineBasicMaterial color={active?"#4c9484":"#9faea6"} transparent opacity={active?.95:.45}/>
+    </lineSegments>;
   })}</>;
 }
 function RequestTokens({cases,selected,onCase}:{cases:TwinCase[];selected:string;onCase:(id:string)=>void}){
@@ -107,23 +110,23 @@ function World({props}:{props:Props}){
     return nodes.map(n=>({...n,status:seen.get(n.name)?.status??"idle"}));
   },[nodes,events,replayIndex]);
   return <>
-    <color attach="background" args={["#07111f"]}/>
-    <fog attach="fog" args={["#07111f",25,75]}/>
-    <ambientLight intensity={.8}/><hemisphereLight args={["#b4ddff","#101827",1.5]}/>
-    <directionalLight position={[8,16,8]} intensity={3.2} castShadow shadow-mapSize={[2048,2048]} shadow-camera-left={-25} shadow-camera-right={25} shadow-camera-top={25} shadow-camera-bottom={-25}/>
-    <Suspense fallback={null}><Environment preset="city" environmentIntensity={.4}/></Suspense>
-    <Physics gravity={[0,-9.81,0]} colliders={false}>
-      <RigidBody type="fixed" colliders="cuboid"><mesh receiveShadow position={[0,-.35,0]}><boxGeometry args={[27,.65,23]}/><meshStandardMaterial color="#101e30" roughness={.83} metalness={.18}/></mesh></RigidBody>
-      <gridHelper args={[27,27,"#264c63","#1a344b"]} position={[0,.015,0]}/>
+    <color attach="background" args={["#e8e7dd"]}/>
+    <fog attach="fog" args={["#e8e7dd",31,80]}/>
+    <ambientLight intensity={.85}/><hemisphereLight args={["#f7f4e9","#899b92",1.6]}/>
+    <directionalLight position={[8,16,8]} intensity={2.2} castShadow shadow-mapSize={[2048,2048]} shadow-camera-left={-25} shadow-camera-right={25} shadow-camera-top={25} shadow-camera-bottom={-25}/>
+    <Suspense fallback={null}><Environment preset="city" environmentIntensity={.18}/></Suspense>
+    <group>
+      <mesh receiveShadow position={[0,-.35,0]}><boxGeometry args={[29,.65,25]}/><meshStandardMaterial color="#d2d1c6" roughness={.96}/></mesh>
+      <gridHelper args={[28,28,"#b6c0b5","#c6ccc1"]} position={[0,.015,0]}/>
       {departments.map(d=><Building key={d.name} {...d} selected={selectedDepartment===d.name} onClick={()=>onDepartment(d.name)}/>)}
       {locations.map(([pos,name],i)=><Agent key={name} name={name} pos={pos} status={visible[i]?.status??"idle"} selected={selectedAgent===name} onClick={()=>onAgent(name)}/>)}
       <RequestTokens cases={cases} selected={selectedCase} onCase={onCase}/>
       <Connections nodes={visible}/>
-    </Physics>
+    </group>
     <ContactShadows position={[0,.02,0]} opacity={.35} scale={26} blur={2.5} far={13}/>
     <OrbitControls makeDefault enableDamping dampingFactor={.07} minDistance={9} maxDistance={43} maxPolarAngle={Math.PI*.48} minPolarAngle={.25} target={[0,1,0]}/>
     <CameraDirector target={selectedDepartment||selectedAgent}/>
-    <EffectComposer multisampling={0}><Bloom intensity={.4} luminanceThreshold={1.15} mipmapBlur/><Vignette eskil={false} offset={.18} darkness={.6}/></EffectComposer>
+    <EffectComposer multisampling={0}><Vignette eskil={false} offset={.24} darkness={.16}/></EffectComposer>
     {!live&&<Html fullscreen style={{pointerEvents:"none"}}><div className="twinWatermark">VISUALIZATION OF RECORDED STATE · NOT A LIVE GOVERNMENT SYSTEM</div></Html>}
   </>;
 }
