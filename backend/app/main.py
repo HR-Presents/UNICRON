@@ -121,3 +121,7 @@ install_knowledge_base(app, DB_PATH)
 # CIVITAS 0.4B: durable background investigation queue.
 from .job_queue import install as install_job_queue
 install_job_queue(app, DB_PATH)
+
+# Auditable hypothetical scenario event sessions (separate from AI workflow).
+from .scenario_sessions import install as install_scenario_sessions
+install_scenario_sessions(app, DB_PATH)
