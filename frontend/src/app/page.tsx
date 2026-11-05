@@ -85,13 +85,15 @@ export default function Home() {
     else setError("Could not retrieve investigation results");
   }, []);
 
-  useEffect(() => { void refreshCases(); }, [refreshCases]);
   useEffect(() => {
-    setJobs([]); setExecutions([]); setEvents([]); setInvestigations([]);
+    const timer = setTimeout(() => { void refreshCases(); }, 0);
+    return () => clearTimeout(timer);
+  }, [refreshCases]);
+  useEffect(() => {
     if (!selected) return;
-    void refreshCase(selected);
+    const initial = setTimeout(() => { void refreshCase(selected); }, 0);
     const timer = setInterval(() => { void refreshCase(selected); }, 3500);
-    return () => clearInterval(timer);
+    return () => { clearTimeout(initial); clearInterval(timer); };
   }, [selected, refreshCase]);
   useEffect(() => {
     if (section !== "Audit") return;
