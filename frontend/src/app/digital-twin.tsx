@@ -86,7 +86,7 @@ function Connections({nodes}:{nodes:TwinNode[]}){
     const start=new THREE.Vector3(p[0],.32,p[2]);const end=new THREE.Vector3(to[0],.32,to[2]);
     const points=[start,new THREE.Vector3((p[0]+to[0])/2,.32,(p[2]+to[2])/2),end];
     const geometry=new THREE.BufferGeometry().setFromPoints(points);
-    return <group key={i}><line geometry={geometry}><lineBasicMaterial color={color} transparent opacity={.9}/></line>{activeStatus(nodes[i]?.status??"idle")&&<Courier from={p} to={to} progress={i*.13}/>}</group>;
+    return <group key={i}><lineSegments geometry={geometry}><lineBasicMaterial color={color} transparent opacity={.9}/></lineSegments>{activeStatus(nodes[i]?.status??"idle")&&<Courier from={p} to={to} progress={i*.13}/>}</group>;
   })}</>;
 }
 function RequestTokens({cases,selected,onCase}:{cases:TwinCase[];selected:string;onCase:(id:string)=>void}){
