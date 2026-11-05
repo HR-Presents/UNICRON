@@ -140,7 +140,7 @@ def validate_draft(raw, matrix):
 class EvidenceVerdict(BaseModel):
     claim_index: int = Field(ge=0)
     verdict: str
-    reason: str = Field(min_length=8, max_length=250)
+    reason: str = Field(min_length=8, max_length=500)
 
 
 def verify_draft_claims(draft, model_call):
@@ -172,7 +172,8 @@ def verify_draft_claims(draft, model_call):
         'supported by its own cited excerpts, contradicted, or lacks sufficient '
         'evidence. Never infer laws, applicability, or unstated facts. '
         'Return one assessment for every claim index. When uncertain choose '
-        'insufficient_evidence. Return only the requested JSON.'
+        'insufficient_evidence. Keep each reason under 400 characters. '
+        'Return only the requested JSON.'
     )
     def validate_assessments(raw):
         if not isinstance(raw, dict) or not isinstance(raw.get('assessments'), list):
