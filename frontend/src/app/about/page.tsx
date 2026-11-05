@@ -23,6 +23,6 @@ export default function AboutPage(){
  <section className="aboutStatement"><span className="hubIndex">02 / HOW IT WORKS</span><div><p>Six specialized stages.<br/><em>One accountable workflow.</em></p><span>Every stage can be inspected through the investigation workspace, with recorded checkpoints and source provenance where available.</span></div></section>
  <section className="aboutAgents"><div className="hubIndex">03 / THE AGENT NETWORK</div><div className="aboutAgentList">{stages.map(([number,name,description])=><div className="aboutAgentRow" key={number}><span>{number}</span><h3>{name}</h3><p>{description}</p><span className="aboutArrow">↗</span></div>)}</div></section>
  <section className="hubManifesto"><div className="hubIndex">04 / EXPLORE UNICRON</div><h2>From the first question<br/>to <em>human judgment.</em></h2><p>Create a case, inspect the agent stages and review evidence, scenario checkpoints and governance records through the existing platform.</p><Link href="/contact">Start an investigation <span>↗</span></Link><div><Link href="/">Open intelligence workspace <span>↗</span></Link></div></section>
- </main><footer className="hubFooter"><span>UNICRON®</span><p>PUBLIC-SECTOR INTELLIGENCE<br/>ITU AI FOR GOOD / UAE</p><Link href="/contact">LAUNCH A CASE ↗</Link><small>© {new Date().getFullYear()} UNICRON</small></footer>
+ </main><footer className="hubFooter"><span>UNICRON®</span><p>PUBLIC-SECTOR INTELLIGENCE<br/>ITU AI FOR GOOD / UAE</p><Link href="/contact">LAUNCH A CASE ↗</Link><small>© 2026 UNICRON</small></footer>
  </div>
 }
