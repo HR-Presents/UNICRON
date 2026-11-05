@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import hmac
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -36,6 +37,22 @@ with db() as con:
         detail TEXT NOT NULL, created_at TEXT NOT NULL)''')
 
 app = FastAPI(title='CIVITAS API', version='0.3.0')
+
+@app.middleware('http')
+async def optional_api_auth(request, call_next):
+    """Opt-in deployment-wide API authentication; local development stays unchanged."""
+    from fastapi.responses import JSONResponse
+    if request.method == 'OPTIONS' or request.url.path == '/api/health' or not request.url.path.startswith('/api/'):
+        return await call_next(request)
+    expected = os.getenv('CIVITAS_API_KEY', '').strip()
+    if not expected:
+        return await call_next(request)
+    provided = request.headers.get('authorization', '')
+    prefix = 'Bearer '
+    if not provided.startswith(prefix) or not hmac.compare_digest(provided[len(prefix):], expected):
+        return JSONResponse(status_code=401, content={'detail': 'API authentication required'})
+    return await call_next(request)
+
 app.add_middleware(CORSMiddleware, allow_origins=['http://localhost:3000', 'http://127.0.0.1:3000'], allow_credentials=False, allow_methods=['GET','POST','PATCH'], allow_headers=['*'])
 
 class CaseCreate(BaseModel):
