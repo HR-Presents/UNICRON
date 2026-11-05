@@ -267,39 +267,39 @@ def run_one(worker_id):
     heartbeat_thread.start()
 
     try:
-        # Reuse the existing real six-stage workflow.
-        result = investigation.run_workflow(job["case_id"])
-
-    except Exception as exc:
-        finish(
-            job["id"], worker_id,
-            "failed", error_type=type(exc).__name__
-        )
-        import traceback
-        from fastapi import HTTPException
-
-        if isinstance(exc, HTTPException):
-            print(
-                f"Job {job['id']} failed: "
-                f"HTTP {exc.status_code}: {str(exc.detail)[:500]}",
-                flush=True
+        try:
+            # Reuse the existing real six-stage workflow.
+            result = investigation.run_workflow(job["case_id"])
+        except Exception as exc:
+            finish(
+                job["id"], worker_id,
+                "failed", error_type=type(exc).__name__
             )
+            import traceback
+            from fastapi import HTTPException
+
+            if isinstance(exc, HTTPException):
+                print(
+                    f"Job {job['id']} failed: "
+                    f"HTTP {exc.status_code}: {str(exc.detail)[:500]}",
+                    flush=True
+                )
+            else:
+                print(
+                    f"Job {job['id']} failed: {type(exc).__name__}",
+                    flush=True
+                )
+            traceback.print_exception(type(exc), exc, exc.__traceback__)
         else:
-            print(
-                f"Job {job['id']} failed: {type(exc).__name__}",
-                flush=True
+            finish(
+                job["id"], worker_id,
+                "completed", result_id=result["id"]
             )
-
-        traceback.print_exception(type(exc), exc, exc.__traceback__)
-    else:
-        finish(
-            job["id"], worker_id,
-            "completed", result_id=result["id"]
-        )
-        print(f"Job {job['id']} completed", flush=True)
-
-    stop_heartbeat.set()
-    heartbeat_thread.join(timeout=10)
+            print(f"Job {job['id']} completed", flush=True)
+    finally:
+        # Never leak a heartbeat thread if finishing the job raises.
+        stop_heartbeat.set()
+        heartbeat_thread.join(timeout=10)
     return True
 
 
