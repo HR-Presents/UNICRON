@@ -1,0 +1,66 @@
+/* UNICRON editorial workspace: styling only; all backend actions remain in page.tsx. */
+.site{--paper:#f3f1ea;--ink:#252b26;--muted:#73796e;--line:#c9cdc2;--sage:#7a8a78;--deep:#29382e;background:var(--paper);color:var(--ink);font-family:Arial,Helvetica,sans-serif}
+.site .nav{background:#f3f1ea;backdrop-filter:none;border-bottom:1px solid #c7c9be;min-height:92px;height:auto;padding:14px 4.5vw;gap:22px}
+.site .wordmark{font:800 28px Arial,Helvetica,sans-serif;letter-spacing:-.085em;color:#253027}
+.site .wordmarkDot{color:#71816f}
+.site .nav nav{gap:clamp(12px,1.4vw,28px);flex-wrap:wrap}
+.site .nav nav button{font-size:11px;letter-spacing:.04em;color:#697469}
+.site .nav nav button.navActive{color:#1c3325;border-bottom:1px solid #1c3325}
+.site .navCta,.site .primary{background:#2c382e;border-color:#2c382e;border-radius:0;padding:17px 23px}
+.site .navCta:hover,.site .primary:hover{background:#536453}
+.site .content{max-width:none;padding:0 4.5vw}
+.site .workHeader{padding:95px 0 70px;border-bottom:1px solid #c4c9be}
+.site .workHeader h1{font:400 clamp(58px,8.2vw,145px)/.98 Georgia,'Times New Roman',serif;letter-spacing:-.085em;max-width:1200px;margin:34px 0}
+.site .workHeader p{font-size:16px;max-width:670px;line-height:1.85}
+.site .overline,.site .sideHeading,.site .commandPanelHead>div>span{font-size:10px;letter-spacing:.16em;color:#6f7d6e}
+.site .workLayout{grid-template-columns:minmax(250px,27%) minmax(0,1fr);gap:clamp(32px,5vw,90px);padding:70px 0 130px}
+.site .caseSidebar{top:120px}
+.site .selectedSummary h3{font:400 32px/1.15 Georgia,serif;letter-spacing:-.05em}
+.site .selectedSummary p{font-size:13px;line-height:1.8}
+.site .caseSidebar select,.site .reviewForm input:not([type=checkbox]),.site .reviewForm textarea,.site .modal input,.site .modal textarea,.site .modal select{background:transparent;border:0;border-bottom:1px solid #aeb6a9;border-radius:0;padding:15px 0;font-size:14px}
+.site .tags span{background:#dfe5da;border-radius:0}
+.site .listHead{padding-bottom:25px;border-color:#bdc5b9}
+.site .listHead h2{font:400 clamp(35px,4vw,62px) Georgia,serif;letter-spacing:-.06em}
+.site .listHead input{border:0;border-bottom:1px solid #aeb6a9;background:transparent}
+.site .caseRow{padding:33px 18px;border-color:#c9cdc2}
+.site .caseRow h3{font:400 clamp(23px,2.6vw,40px) Georgia,serif;letter-spacing:-.045em}
+.site .caseRow:hover,.site .caseRow.chosen{background:#e0e6da}
+.site .stageList{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:35px}
+.site .stage{background:#e3e8de;border:1px solid #c7d0c3;border-radius:0;padding:29px;min-height:125px}
+.site .stage:hover,.site .stage.chosen{background:#d2dfd0;border-color:#a2b6a1}
+.site .stage strong{font:400 21px Georgia,serif;letter-spacing:-.035em}
+.site .stageNum{font:15px Georgia,serif}
+.site .output{margin-top:40px;padding:35px 0;border-color:#b9c2b6}
+.site .output h3{font:400 clamp(30px,3.5vw,50px) Georgia,serif;letter-spacing:-.05em}
+.site .detailField,.site .reviewRow{border-color:#cbd0c7}
+.site .replayButtons button,.site .reviewActions button{border-radius:0;background:transparent;padding:15px 20px}
+.site .modal{background:#f3f1ea;border-radius:0;box-shadow:0 35px 100px #15261c45}
+.site .modal h2{font:400 55px Georgia,serif;letter-spacing:-.06em}
+.site .commandCenter{background:#f3f1ea;color:#253027;border-top:1px solid #c7c9be;min-height:auto}
+.site .commandTop,.site .commandMetrics{border-color:#bdc5b9}
+.site .commandTop h1{font:400 clamp(55px,7.5vw,125px)/1 Georgia,serif;letter-spacing:-.07em}
+.site .commandTop h1 em{color:#83937e}
+.site .commandTop p,.site .commandMetrics small{color:#687568}
+.site .commandEyebrow,.site .commandPanelHead span,.site .commandBottom span,.site .commandMetrics span,.site .commandSignalTop,.site .commandSignalBottom,.site .commandDisclaimer{color:#6c7c6e}
+.site .commandSignal,.site .commandPanel{background:#e4e9df;border:1px solid #b9c8b9;color:#2d382f}
+.site .commandSignalBottom,.site .commandPanelHead,.site .commandCase,.site .commandStages button{border-color:#bdc8ba}
+.site .commandSignal p,.site .commandCase small,.site .commandWorkflowFooter>span,.site .commandEmpty{color:#69786b}
+.site .commandCase,.site .commandStages button{color:#29362d}
+.site .commandCase:hover,.site .commandCase.selected{background:#d3dfd1}
+.site .commandCase>span,.site .commandStageState{color:#57715c}
+.site .commandPanelHead button{color:#2b4a32}
+.site .commandPrimary,.site .commandWorkflowFooter button{background:#2c382e;color:#f3f1ea;border-color:#2c382e}
+.site .commandSecondary{border-color:#9cac9d;color:#2c382e}
+.site .commandBottom button{background:#e4e9df;border:1px solid #b9c8b9;color:#2d382f}
+.site .commandBottom button strong{color:#2d382f}
+.site .twinWorkspace{padding-top:40px}
+.site .twinHeading h1{font:400 clamp(45px,5vw,76px) Georgia,serif;letter-spacing:-.06em}
+.site .twinInspector{background:#f3f1ea;border:1px solid #bfc9bd}
+.site .twinInspector h2{font:400 29px Georgia,serif}
+.site .twinViewport{border-radius:0}
+.site .twinAgentList button.twinAgentSelected{background:#d8e2d5}
+.site .twinInspector select{background:#f3f1ea}
+.site .notice{border-radius:0}
+@media(max-width:1050px){.site .nav{flex-wrap:wrap}.site .nav nav{order:3;width:100%;overflow-x:auto;flex-wrap:nowrap}.site .navEnd{margin-left:auto}.site .workLayout{grid-template-columns:1fr}.site .caseSidebar{position:static}.site .workHeader{padding:70px 0 45px}}
+@media(max-width:650px){.site .nav{padding:14px 5vw}.site .content{padding:0 5vw}.site .workHeader h1{font-size:clamp(47px,12vw,78px)}.site .stageList{grid-template-columns:1fr}.site .commandCenter{margin:0 -5vw;padding:40px 5vw}.site .commandTop,.site .commandGrid,.site .commandBottom{grid-template-columns:1fr}.site .commandMetrics{grid-template-columns:repeat(2,1fr)}.site .workLayout{padding-top:40px}.site .listHead{flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){.site *{transition:none!important;animation:none!important}}
