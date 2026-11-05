@@ -123,6 +123,24 @@ def assess_scenario_guardrails(scenario):
     }
 
 
+
+def synthesis_review_gates(policy, benchmark, scenario):
+    """Deterministic review checklist from stage statuses, not model prose."""
+    gates = []
+    for agent, stage in (('Policy Advisor', policy), ('Global Benchmark Agent', benchmark)):
+        if stage.get('status') != 'completed':
+            gates.append({'agent': agent, 'code': 'qualified_review_required',
+                          'action': 'Obtain qualified review of evidence and legal applicability.'})
+    comparison = benchmark.get('result', {}).get('ai_comparison_draft')
+    if isinstance(comparison, dict) and comparison.get('semantic_entailment') != 'model_assessed_not_verified':
+        gates.append({'agent': 'Global Benchmark Agent', 'code': 'semantic_assessment_unavailable',
+                      'action': 'Review each comparison against its cited source passages.'})
+    if scenario.get('guardrail_flags'):
+        gates.append({'agent': 'Scenario Evaluator', 'code': 'scenario_assumptions_or_applicability_unverified',
+                      'action': 'Validate scenario assumptions and jurisdictional applicability.'})
+    return gates
+
+
 def model_json(system, context, schema, max_tokens=420):
     payload = {
         'model': MODEL,
@@ -466,6 +484,9 @@ def _execute_workflow(case_id, run_id, checkpoint):
             ("recommended_next_steps", "unresolved_questions"))).model_dump()
     except (ValidationError, HTTPException, ValueError) as exc:
         raise HTTPException(502, f'Review & Synthesis failed; no investigation saved: {type(exc).__name__}') from exc
+    synthesis['review_gates'] = synthesis_review_gates(policy, benchmark, scenario)
+    synthesis['human_review_required'] = True
+    synthesis['automated_approval_permitted'] = False
     stages.append({'agent': 'Review & Synthesis', 'status': 'completed', 'result': synthesis,
                    'note': 'Advisory only. Human approval required.'})
 
