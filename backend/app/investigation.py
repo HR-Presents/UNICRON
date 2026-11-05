@@ -6,6 +6,7 @@ import json
 import os
 import re
 import sqlite3
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -98,6 +99,7 @@ def model_json(system, context, schema, max_tokens=420):
         'stream': False,
     }
     req = urllib.request.Request(BASE_URL + '/chat/completions', data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'}, method='POST')
+    started = time.perf_counter()
     try:
         with urllib.request.urlopen(req, timeout=120) as response:
             body = json.load(response)
@@ -106,6 +108,13 @@ def model_json(system, context, schema, max_tokens=420):
         raise HTTPException(503, f'Local LLM unavailable: {type(exc).__name__}') from exc
     except (ValueError, KeyError, IndexError, TypeError) as exc:
         raise HTTPException(502, f'Invalid LLM response: {str(exc)[:400]}') from exc
+    finally:
+        # Timing only: never log prompts, source excerpts, or generated text.
+        # Opt-in so normal worker logs remain quiet.
+        if os.getenv('CIVITAS_LLM_TIMING', '').strip() == '1':
+            elapsed = time.perf_counter() - started
+            print(f'LLM request elapsed_seconds={elapsed:.3f} '
+                  f'max_tokens={max_tokens}', flush=True)
 
 
 class ScenarioResult(BaseModel):
