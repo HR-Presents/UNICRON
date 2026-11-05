@@ -58,6 +58,34 @@ def parse_json(content):
         raise ValueError('Model did not return valid JSON')
 
 
+def benchmark_failure_code(exc):
+    """Classify failures without persisting model text or sensitive evidence."""
+    message = str(exc).lower()
+    if isinstance(exc, HTTPException):
+        if 'valid json' in message or 'invalid llm response' in message:
+            return 'model_response_invalid'
+        return 'model_request_failed'
+    if isinstance(exc, ValidationError):
+        return 'draft_schema_invalid'
+    if 'unsupported citation' in message:
+        return 'citation_not_in_evidence'
+    if 'two distinct jurisdictions' in message:
+        return 'cross_jurisdiction_citations_missing'
+    if 'duplicate evidence citation' in message:
+        return 'ambiguous_evidence_citations'
+    if 'repeated citation' in message:
+        return 'repeated_citation'
+    if 'classification' in message:
+        return 'classification_invalid'
+    if 'valid json' in message or 'invalid after two attempts' in message:
+        # The underlying cause is inspected below when available.
+        cause = getattr(exc, '__cause__', None)
+        if cause is not None and cause is not exc:
+            return benchmark_failure_code(cause)
+        return 'draft_validation_failed'
+    return 'draft_validation_failed'
+
+
 def model_json(system, context, schema, max_tokens=420):
     payload = {
         'model': MODEL,
@@ -329,6 +357,7 @@ def _execute_workflow(case_id, run_id, checkpoint):
             benchmark['result']['ai_comparison_draft'] = None
             benchmark['result']['ai_analysis_status'] = 'validation_failed_or_model_unavailable'
             benchmark['result']['ai_analysis_error_type'] = type(exc).__name__
+            benchmark['result']['ai_analysis_error_code'] = benchmark_failure_code(exc)
     stages.append(policy)
     checkpoint(stages[-1])
     stages.append(benchmark)
