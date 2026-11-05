@@ -1,0 +1,3 @@
+import {NextRequest,NextResponse} from "next/server";
+const backend=process.env.BACKEND_URL??"http://127.0.0.1:42515";
+export async function POST(_req:NextRequest,{params}:{params:Promise<{id:string;sessionId:string;action:string}>}){const {id,sessionId,action}=await params;if(!["start","pause","resume","next"].includes(action))return NextResponse.json({detail:"Unsupported action"},{status:404});try{const r=await fetch(`${backend}/api/cases/${encodeURIComponent(id)}/scenario-sessions/${encodeURIComponent(sessionId)}/${action}`,{method:"POST",signal:AbortSignal.timeout(10000)});return NextResponse.json(await r.json(),{status:r.status});}catch{return NextResponse.json({detail:"Scenario backend unavailable"},{status:503});}}
