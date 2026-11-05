@@ -124,6 +124,32 @@ def assess_scenario_guardrails(scenario):
 
 
 
+
+def assess_scenario_risks(scenario):
+    """Create traceable qualitative risk records without invented probabilities.
+
+    Position-based mitigation mapping is a review aid, not verified effectiveness.
+    """
+    records = []
+    mitigations = scenario.get('mitigations') or []
+    for index, risk in enumerate(scenario.get('risks') or []):
+        linked = mitigations[index] if index < len(mitigations) else None
+        records.append({
+            'risk_id': f'R{index + 1}',
+            'description': risk,
+            'severity': 'unassessed',
+            'likelihood': 'unassessed',
+            'risk_level': 'requires_domain_assessment',
+            'mitigation': linked,
+            'mitigation_link_basis': 'list_position_unverified' if linked else 'none',
+            'mitigation_effectiveness': 'not_verified',
+            'assumptions_verified': False,
+            'owner': 'scenario_domain_reviewer',
+            'human_review_required': True,
+        })
+    return records
+
+
 def synthesis_review_gates(policy, benchmark, scenario):
     """Deterministic review checklist from stage statuses, not model prose."""
     gates = []
@@ -505,6 +531,7 @@ def _execute_workflow(case_id, run_id, checkpoint):
                 scenario_context, scenario_schema, max_tokens=600)
             scenario = assess_scenario_guardrails(ScenarioResult.model_validate(normalize_lists(
                 raw, ("risks", "mitigations", "assumptions"))).model_dump())
+            scenario['risk_register'] = assess_scenario_risks(scenario)
             break
         except (ValidationError, HTTPException, ValueError) as exc:
             scenario_error = exc
