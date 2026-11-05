@@ -72,8 +72,7 @@ def assess_citation_support(draft, evidence):
     assessments = []
     for index, claim in enumerate(draft.comparisons):
         terms = tokens(claim.observation)
-        cited = [by_citation[c] for c in claim.citations]
-                 if c in by_citation]
+        cited = [by_citation[c] for c in claim.citations if c in by_citation]
         passage_tokens = [tokens(item['verbatim_excerpt']) for item in cited]
         union = set().union(*passage_tokens) if passage_tokens else set()
         overlap = len(terms & union) / len(terms) if terms else 0.0
