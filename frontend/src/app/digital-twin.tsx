@@ -114,7 +114,7 @@ function World({props}:{props:Props}){
     <Suspense fallback={null}><Environment preset="city" environmentIntensity={.4}/></Suspense>
     <Physics gravity={[0,-9.81,0]} colliders={false}>
       <RigidBody type="fixed" colliders="cuboid"><mesh receiveShadow position={[0,-.35,0]}><boxGeometry args={[27,.65,23]}/><meshStandardMaterial color="#101e30" roughness={.83} metalness={.18}/></mesh></RigidBody>
-      <gridHelper args={[27,27,"#264c63","#1a344b"]]} position={[0,.015,0]}/>
+      <gridHelper args={[27,27,"#264c63","#1a344b"]} position={[0,.015,0]}/>
       {departments.map(d=><Building key={d.name} {...d} selected={selectedDepartment===d.name} onClick={()=>onDepartment(d.name)}/>)}
       {locations.map(([pos,name],i)=><Agent key={name} name={name} pos={pos} status={visible[i]?.status??"idle"} selected={selectedAgent===name} onClick={()=>onAgent(name)}/>)}
       <RequestTokens cases={cases} selected={selectedCase} onCase={onCase}/>
