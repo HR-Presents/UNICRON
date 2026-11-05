@@ -87,6 +87,42 @@ def benchmark_failure_code(exc):
     return 'draft_validation_failed'
 
 
+
+def assess_scenario_guardrails(scenario):
+    """Flag jurisdictional and assumption risks without asserting legal facts.
+
+    This is a conservative lexical triage, not legal applicability analysis.
+    Preserve the model's original text for qualified human review.
+    """
+    flags = []
+    legal_pattern = re.compile(
+        r'\\b(?:implement(?:ing)?|comply(?:ing)? with|enforce|mandatory|'
+        r'legally required|must follow|must adopt)\\b.{0,100}'
+        r'\\b(?:EU AI Act|European AI Act|AI Act|GDPR|UK law)\\b',
+        flags=re.I)
+    for index, mitigation in enumerate(scenario.get('mitigations', [])):
+        if legal_pattern.search(mitigation):
+            flags.append({
+                'field': 'mitigations', 'index': index,
+                'code': 'jurisdictional_applicability_unestablished',
+                'action': 'qualified_review_required',
+            })
+    for index, assumption in enumerate(scenario.get('assumptions', [])):
+        flags.append({
+            'field': 'assumptions', 'index': index,
+            'code': 'scenario_assumption_unverified',
+            'action': 'validate_before_operational_use',
+        })
+    return {
+        **scenario,
+        'guardrail_flags': flags,
+        'legal_applicability': 'not_established',
+        'assumptions_verified': False,
+        'human_review_required': True,
+        'automated_approval_permitted': False,
+    }
+
+
 def model_json(system, context, schema, max_tokens=420):
     payload = {
         'model': MODEL,
@@ -402,8 +438,8 @@ def _execute_workflow(case_id, run_id, checkpoint):
             raw = model_json(
                 scenario_prompt + (' Keep each list to 1-3 short items.' if attempt else ''),
                 scenario_context, scenario_schema, max_tokens=600)
-            scenario = ScenarioResult.model_validate(normalize_lists(
-                raw, ("risks", "mitigations", "assumptions"))).model_dump()
+            scenario = assess_scenario_guardrails(ScenarioResult.model_validate(normalize_lists(
+                raw, ("risks", "mitigations", "assumptions"))).model_dump())
             break
         except (ValidationError, HTTPException, ValueError) as exc:
             scenario_error = exc
