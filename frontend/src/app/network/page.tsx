@@ -6,7 +6,7 @@ import "./network.css";
 type Case={id:string;title:string;domain:string};
 type Stage={agent:string;status:string;result?:unknown;note?:string};
 type Run={id:string;stages:Stage[]};
-type Event={sequence:number;agent:string;status:string;created_at:string};
+type Event={sequence:number;agent:string;status:string;created_at:string;stage?:Stage};
 type Job={id:string;status:string;error_type?:string};
 const names=["Intake & Triage","Evidence Analyst","Policy Advisor","Global Benchmark Agent","Scenario Evaluator","Review & Synthesis"];
 async function get<T>(path:string):Promise<T>{const r=await fetch(path,{cache:"no-store"});if(!r.ok)throw new Error(`Request failed (${r.status})`);return r.json();}
@@ -17,7 +17,7 @@ export default function NetworkPage(){
  const refreshCase=useCallback(async(id:string)=>{if(!id){setRuns([]);setEvents([]);setJobs([]);return;}const root=`/api/cases/${encodeURIComponent(id)}`;const results=await Promise.allSettled([get<Run[]>(root+"/investigations"),get<{id:string}[]>(root+"/executions"),get<Job[]>(root+"/jobs")]);if(results[0].status==="fulfilled")setRuns(results[0].value);else setRuns([]);if(results[2].status==="fulfilled")setJobs(results[2].value);else setJobs([]);if(results[1].status==="fulfilled"&&results[1].value[0]?.id){try{setEvents(await get<Event[]>(root+"/executions/"+encodeURIComponent(results[1].value[0].id)+"/events"));}catch{setEvents([]);}}else setEvents([]);if(results.some(x=>x.status==="rejected"))setError("Some investigation records are unavailable.");},[]);
  useEffect(()=>{const initial=setTimeout(()=>void refreshCases(),0);const timer=setInterval(()=>void refreshCases(),15000);return()=>{clearTimeout(initial);clearInterval(timer)}},[refreshCases]);
  useEffect(()=>{const initial=setTimeout(()=>void refreshCase(selected),0);const timer=setInterval(()=>void refreshCase(selected),3500);return()=>{clearTimeout(initial);clearInterval(timer)}},[selected,refreshCase]);
- const stages=useMemo(()=>names.map(name=>{const recorded=runs[0]?.stages.find(s=>s.agent===name);const event=[...events].reverse().find(e=>e.agent===name);return {name,status:event?.status??recorded?.status??"Not started",result:recorded?.result??recorded?.note,history:events.filter(e=>e.agent===name)};}),[runs,events]);
+ const stages=useMemo(()=>names.map(name=>{const recorded=runs[0]?.stages?.find(s=>s.agent===name);const event=[...events].reverse().find(e=>e.agent===name);return {name,status:event?.status??recorded?.status??"Not started",result:event?.stage?.result??event?.stage?.note??recorded?.result??recorded?.note,history:events.filter(e=>e.agent===name)};}),[runs,events]);
  const active=stages.find(s=>s.name===agent)??stages[0];const job=jobs[0];const running=job?.status==="queued"||job?.status==="running";
  async function investigate(){if(!selected||busy||running)return;setBusy(true);setError("");try{const r=await fetch(`/api/cases/${encodeURIComponent(selected)}/investigate/async`,{method:"POST"});if(!r.ok)throw new Error(`Investigation could not start (${r.status})`);await refreshCase(selected);}catch(e){setError(String(e))}finally{setBusy(false)}}
  return <div className="hub networkPage">
