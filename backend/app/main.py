@@ -92,7 +92,7 @@ def summary():
         total = con.execute('SELECT COUNT(*) FROM cases').fetchone()[0]
         open_cases = con.execute("SELECT COUNT(*) FROM cases WHERE status != 'Resolved'").fetchone()[0]
         high = con.execute("SELECT COUNT(*) FROM cases WHERE priority = 'High' AND status != 'Resolved'").fetchone()[0]
-        return {'total_cases': total, 'active_cases': open_cases, 'high_priority_open': high, 'evidence_items': con.execute('SELECT COUNT(*) FROM evidence_documents').fetchone()[0], 'agents_running': 0}
+        return {'total_cases': total, 'active_cases': open_cases, 'high_priority_open': high, 'evidence_items': con.execute('SELECT COUNT(*) FROM evidence_documents').fetchone()[0], 'agents_running': con.execute("SELECT COUNT(*) FROM investigation_jobs WHERE status='running'").fetchone()[0]}
 
 # Register real LLM-backed intake triage and persistent analysis history.
 from .triage import install as install_triage
