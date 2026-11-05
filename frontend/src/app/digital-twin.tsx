@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef } from "react";
-import { Canvas, ThreeEvent, useFrame, useThree } from "@react-three/fiber";
+import { Suspense, useEffect, useMemo } from "react";
+import { Canvas, ThreeEvent, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Html, OrbitControls, Text } from "@react-three/drei";
 import { EffectComposer, Vignette } from "@react-three/postprocessing";
 import gsap from "gsap";
