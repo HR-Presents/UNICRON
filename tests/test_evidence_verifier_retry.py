@@ -15,6 +15,7 @@ def draft():
         ],
         'claim_risk_flags': [], 'limitations': '',
         'approved_policy_findings': [], 'automated_approval_permitted': False,
+        'human_review_required': True,
     }
 
 
