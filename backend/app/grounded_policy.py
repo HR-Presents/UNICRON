@@ -187,6 +187,7 @@ def verify_draft_claims(draft, model_call):
         return rows
 
     rows = None
+    failure_categories = []
     for attempt in range(2):
         try:
             if attempt:
@@ -206,9 +207,17 @@ def verify_draft_claims(draft, model_call):
                 raw = model_call(system, context, schema, max_tokens=480)
             rows = validate_assessments(raw)
             break
+        except (ValueError, ValidationError):
+            # Record only a bounded error category; never persist model text.
+            failure_categories.append('invalid_verifier_response')
         except Exception:
-            # Model transport, parsing and schema errors are never persisted.
-            continue
+            # Transport and parsing failures may contain private excerpts.
+            failure_categories.append('model_call_failed')
+    draft['verifier_diagnostics'] = {
+        'attempt_count': len(failure_categories) + (1 if rows is not None else 0),
+        'failure_categories': failure_categories,
+        'outcome': 'unavailable' if rows is None else 'model_assessed_not_verified',
+    }
     if rows is None:
         draft['semantic_entailment'] = 'verification_unavailable'
         draft['model_evidence_assessments'] = []
