@@ -47,6 +47,24 @@ def assess_claim_risks(draft, evidence):
                 risks.append({'claim_index': i, 'code': code,
                               'action': 'qualified_review_required',
                               'reason': 'The cited excerpts alone do not establish this legal conclusion.'})
+    # Recommendations must not claim established regulatory compliance.
+    compliance_patterns = (
+        r"\b(?:ensure|ensures|ensuring|guarantee|guarantees|guaranteeing)\s+compliance\b",
+        r"\bfully compliant\b",
+        r"\bcompliant with (?:both|all)\b",
+        r"\b(?:satisfies|meets)\s+(?:both|all)\s+(?:laws|regulations|requirements)\b",
+    )
+    for index, recommendation in enumerate(draft.recommendation_drafts):
+        recommendation_text = recommendation.action + " " + recommendation.rationale
+        if any(re.search(pattern, recommendation_text, flags=re.I)
+               for pattern in compliance_patterns):
+            risks.append({
+                "claim_index": None,
+                "recommendation_index": index,
+                "code": "unproven_compliance_assurance",
+                "action": "qualified_review_required",
+                "reason": "The cited evidence does not establish regulatory compliance.",
+            })
     if not evidence_text.strip():
         risks.append({'claim_index': None, 'code': 'empty_evidence',
                       'action': 'qualified_review_required', 'reason': 'No evidence text available.'})
