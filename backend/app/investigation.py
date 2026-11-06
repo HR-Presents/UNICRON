@@ -161,6 +161,21 @@ def synthesis_review_gates(policy, benchmark, scenario):
     if isinstance(comparison, dict) and comparison.get('semantic_entailment') != 'model_assessed_not_verified':
         gates.append({'agent': 'Global Benchmark Agent', 'code': 'semantic_assessment_unavailable',
                       'action': 'Review each comparison against its cited source passages.'})
+    if isinstance(comparison, dict):
+        assessments = comparison.get('model_evidence_assessments') or []
+        if any(isinstance(item, dict) and item.get('verdict') != 'supported'
+               for item in assessments):
+            gates.append({
+                'agent': 'Global Benchmark Agent',
+                'code': 'comparison_evidence_insufficient_or_contradicted',
+                'action': 'Do not present flagged comparisons as supported findings; inspect each cited passage and revise or reject unsupported claims.',
+            })
+        if comparison.get('comparisons') and not assessments:
+            gates.append({
+                'agent': 'Global Benchmark Agent',
+                'code': 'comparison_evidence_not_assessed',
+                'action': 'Obtain an evidence assessment for every generated comparison before relying on it.',
+            })
     if scenario.get('guardrail_flags'):
         gates.append({'agent': 'Scenario Evaluator', 'code': 'scenario_assumptions_or_applicability_unverified',
                       'action': 'Validate scenario assumptions and jurisdictional applicability.'})
@@ -195,6 +210,17 @@ def synthesis_review_actions(benchmark, scenario):
                 'priority': 'high', 'owner': 'qualified_policy_reviewer',
                 'action': action[:500], 'citations': cited,
                 'status': 'proposal_requires_review',
+                'legal_applicability': 'not_established',
+            })
+    if isinstance(draft, dict) and draft.get('comparisons'):
+        assessments = draft.get('model_evidence_assessments') or []
+        flagged = [item for item in assessments
+                   if isinstance(item, dict) and item.get('verdict') != 'supported']
+        if flagged or not assessments:
+            actions.insert(0, {
+                'priority': 'critical', 'owner': 'qualified_policy_reviewer',
+                'action': 'Review and correct or discard benchmark comparisons flagged as insufficient, contradicted, or unassessed; check source passages before using related recommendations.',
+                'citations': [], 'status': 'evidence_review_required',
                 'legal_applicability': 'not_established',
             })
     if scenario.get('guardrail_flags'):
