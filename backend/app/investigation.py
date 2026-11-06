@@ -518,9 +518,21 @@ def _execute_workflow(case_id, run_id, checkpoint):
     # evidence and community records remain available in prior checkpoints.
     scenario_context = {
         'case': context['case'],
-        'triage': {'priority': triage.get('priority'),
-                   'summary': str(triage.get('summary', ''))[:350]},
-        'evidence': {'document_count': len(evidence) if isinstance(evidence, list) else 0},
+        'triage': {
+            'classification': triage.get('classification') if isinstance(triage, dict) else None,
+            'recommended_priority': triage.get('recommended_priority') if isinstance(triage, dict) else None,
+            'rationale': str(triage.get('rationale', ''))[:350] if isinstance(triage, dict) else '',
+        },
+        'evidence': {
+            'findings': [
+                {'statement': str(item.get('statement', ''))[:240],
+                 'citations': item.get('citations', [])[:2]}
+                for item in (evidence.get('findings') or [])[:2]
+                if isinstance(item, dict)
+            ] if isinstance(evidence, dict) else [],
+            'gaps': [str(gap)[:200] for gap in (evidence.get('gaps') or [])[:2]]
+                    if isinstance(evidence, dict) else [],
+        },
         'source_excerpts': context['source_excerpts'][:2],
     }
     scenario = None
