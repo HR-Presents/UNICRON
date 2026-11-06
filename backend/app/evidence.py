@@ -192,37 +192,80 @@ def analyze_evidence(case_id: str):
                               JOIN evidence_documents d ON d.id=p.document_id WHERE d.case_id=?''', (case_id,)).fetchall()
     if not rows:
         raise HTTPException(409, 'Upload evidence before running the Evidence Analyst')
-    # Balance evidence across documents rather than allowing one source to
-    # dominate a short lexical top-k. Keep retrieval deterministic and auditable.
-    stopwords = {'this', 'that', 'with', 'from', 'into', 'about', 'across',
-                 'their', 'these', 'those', 'have', 'will', 'should', 'case',
-                 'test', 'synthetic', 'actual', 'details', 'compare'}
-    terms = set(re.findall(r'[\\w-]{4,}',
-        (case['title'] + ' ' + case['summary']).casefold())) - stopwords
-    groups = {}
-    for row in rows:
-        groups.setdefault(row['document_id'], []).append(row)
+    # Group multipart uploads by their original publication, not upload file.
+    # This prevents a large split PDF from monopolizing the model context.
+    def source_family(filename):
+        for prefix, family in (
+            ('who_ai_health_', 'who'),
+            ('unesco_ai_ethics_', 'unesco'),
+            ('uae_pdpl_', 'uae_pdpl'),
+            ('UNICRON_UAE_', 'uae_strategy'),
+            ('UNICRON_EU_', 'eu_ai_act'),
+        ):
+            if filename.startswith(prefix):
+                return family
+        return filename
 
     def clean_excerpt(content):
-        # Remove only the extract wrapper; never rewrite source claims.
         content = re.sub(r'^SOURCE EXCERPTS FOR UNICRON TESTING[^\\n]*\\n', '', content)
         content = re.sub(r'^Original file:[^\\n]*\\n', '', content)
         content = re.sub(r'^Page numbers refer to PDF page index[^\\n]*\\n', '', content)
+        content = re.sub(r'^Original PDF:[^\\n]*\\n', '', content)
+        content = re.sub(r'^Extracted text only; independent verification required\\.[^\\n]*\\n', '', content)
         content = re.sub(r'^\\s*===== ORIGINAL PDF PAGE \\d+ =====\\s*', '', content)
-        return content.strip()[:600]
+        return content.strip()[:650]
 
-    ranked_groups = []
-    for document_id, group in sorted(groups.items()):
-        ranked = sorted(group, key=lambda row: (
-            -sum(clean_excerpt(row['content']).casefold().count(t) for t in terms),
-            row['position']))
-        ranked_groups.append(ranked)
+    stopwords = {'this', 'that', 'with', 'from', 'into', 'about', 'across',
+                 'their', 'these', 'those', 'have', 'will', 'should', 'case',
+                 'test', 'synthetic', 'actual', 'details', 'compare',
+                 'integration', 'unicron', 'agent', 'agents'}
+    query = (case['title'] + ' ' + case['summary']).casefold()
+    terms = set(re.findall(r'[\\w-]{4,}', query)) - stopwords
+    # Domain-specific concepts improve ranking when case titles are generic.
+    domain_terms = ('healthcare', 'health', 'patient', 'privacy', 'personal data',
+                    'consent', 'clinical', 'risk', 'safety', 'human oversight',
+                    'transparency', 'accountability', 'governance')
+    groups = {}
+    for row in rows:
+        groups.setdefault(source_family(row['filename']), []).append(row)
+
+    def relevance(row):
+        content = clean_excerpt(row['content']).casefold()
+        query_score = sum(min(content.count(t), 3) for t in terms)
+        domain_score = sum(min(content.count(t), 2) for t in domain_terms)
+        # Favor substantive paragraphs over contents pages and extract headers.
+        return query_score * 3 + domain_score
+
+    ranked_groups = {
+        family: sorted(group, key=lambda r: (-relevance(r), r['document_id'], r['position']))
+        for family, group in groups.items()
+    }
+    # First select one relevant excerpt per publication; fill spare capacity
+    # with the strongest remaining passages, capped at two per publication.
     selected = []
-    # At most three per document, six overall, ensuring coverage when feasible.
-    for depth in range(3):
-        for group in ranked_groups:
-            if len(selected) < 6 and depth < len(group):
-                selected.append(group[depth])
+    for family in sorted(ranked_groups):
+        best = ranked_groups[family][0]
+        if relevance(best) > 0:
+            selected.append(best)
+    selected.sort(key=lambda r: (-relevance(r), source_family(r['filename'])))
+    selected = selected[:6]
+    family_counts = {}
+    for row in selected:
+        family = source_family(row['filename'])
+        family_counts[family] = family_counts.get(family, 0) + 1
+    remaining = sorted(
+        (row for group in ranked_groups.values() for row in group
+         if row not in selected and relevance(row) > 0),
+        key=lambda r: (-relevance(r), source_family(r['filename']), r['document_id'], r['position'])
+    )
+    for row in remaining:
+        if len(selected) >= 6:
+            break
+        family = source_family(row['filename'])
+        if family_counts.get(family, 0) >= 2:
+            continue
+        selected.append(row)
+        family_counts[family] = family_counts.get(family, 0) + 1
     excerpts = [{'citation': f"{r['document_id']}#p{r['position']}",
                  'filename': r['filename'], 'text': clean_excerpt(r['content'])}
                 for r in selected]
