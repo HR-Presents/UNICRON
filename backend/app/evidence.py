@@ -333,10 +333,10 @@ def analyze_evidence(case_id: str):
     for finding in assessment.findings:
         statement = finding.statement.casefold()
         cited_names = [citation_sources[c] for c in finding.citations]
-        uae_attribution = bool(re.search(r'\\b(?:uae|united arab emirates|emirati)\\b', statement))
+        uae_attribution = bool(re.search(r'\b(?:uae|united arab emirates|emirati)\b', statement))
         non_uae_only = all(name.startswith(('who_', 'unesco_', 'unicron_eu_')) for name in cited_names)
-        legal_obligation = bool(re.search(r'\\b(?:law|laws|legislation|regulation|regulations)\\b', statement)
-                                and re.search(r'\\b(?:require|requires|mandate|mandates|must)\\b', statement))
+        legal_obligation = bool(re.search(r'\b(?:law|laws|legislation|regulation|regulations)\b', statement)
+                                and re.search(r'\b(?:require|requires|mandate|mandates|must)\b', statement))
         # A clipped consent-withdrawal passage cannot establish a blanket
         # requirement to obtain consent for all processing.
         consent_overreach = (all(name.startswith('uae_pdpl_') for name in cited_names)
