@@ -344,6 +344,20 @@ def analyze_evidence(case_id: str):
     citation_sources = {e['citation']: e['filename'].casefold() for e in excerpts}
     accepted_findings = []
     flagged_findings = []
+    # Lightweight claim/excerpt alignment is a screening gate, NOT an
+    # entailment verdict. Reject project-specific claims supported only by
+    # external publications and claims with almost no substantive word overlap.
+    citation_text = {e['citation']: e['text'].casefold() for e in excerpts}
+    claim_stopwords = {
+        'about', 'across', 'after', 'before', 'between', 'does', 'from',
+        'have', 'into', 'includes', 'including', 'their', 'there', 'these',
+        'those', 'that', 'this', 'with', 'which', 'would', 'should', 'could',
+        'must', 'only', 'also', 'such', 'under', 'over', 'more', 'than',
+        'data', 'systems', 'system', 'artificial', 'intelligence',
+    }
+    def claim_terms(value):
+        return {w for w in re.findall(r'[a-z]{4,}', value.casefold())
+                if w not in claim_stopwords}
     for finding in assessment.findings:
         statement = finding.statement.casefold()
         cited_names = [citation_sources[c] for c in finding.citations]
@@ -357,10 +371,20 @@ def analyze_evidence(case_id: str):
                              and 'consent' in statement and 'withdrawal' in statement
                              and ('processed' in statement or 'processing' in statement)
                              and legal_obligation)
-        if (uae_attribution and non_uae_only) or consent_overreach:
+        combined_excerpt = ' '.join(citation_text[c] for c in finding.citations)
+        salient = claim_terms(statement)
+        matched = {w for w in salient if w in claim_terms(combined_excerpt)}
+        project_attribution = (
+            bool(re.search(r'\\b(?:unicron|six-agent|integration test)\\b', statement))
+            and not re.search(r'\\b(?:unicron|six-agent|integration test)\\b', combined_excerpt)
+        )
+        weak_alignment = len(salient) >= 4 and len(matched) < 2
+        if (uae_attribution and non_uae_only) or consent_overreach or project_attribution or weak_alignment:
             flagged_findings.append({'statement': finding.statement,
                                      'citations': finding.citations,
-                                     'reason': ('cross_source_attribution' if non_uae_only
+                                     'reason': ('project_claim_not_in_cited_excerpt' if project_attribution
+                                                else 'claim_excerpt_alignment_weak' if weak_alignment
+                                                else 'cross_source_attribution' if non_uae_only
                                                 else 'consent_scope_not_established'),
                                      'human_review_required': True})
         else:
