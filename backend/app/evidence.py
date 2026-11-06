@@ -288,9 +288,28 @@ def analyze_evidence(case_id: str):
               'Use empty arrays when a category has no support; do not insert placeholder prose. '
               'If no source-supported finding is possible, findings must be []. No markdown.')
     user = json.dumps({'case': {'title':case['title'],'summary':case['summary']}, 'excerpts':excerpts}, ensure_ascii=False) + '\n/no_think'
+    # OpenAI-compatible constrained JSON output (llama.cpp supports json_schema).
+    # Schema constrains shape; semantic support is checked separately below.
+    response_schema = {
+        'type': 'object', 'additionalProperties': False,
+        'required': ['findings', 'gaps', 'contradictions', 'recommended_checks'],
+        'properties': {
+            'findings': {'type': 'array', 'maxItems': 3, 'items': {
+                'type': 'object', 'additionalProperties': False,
+                'required': ['statement', 'citations'],
+                'properties': {
+                    'statement': {'type': 'string'},
+                    'citations': {'type': 'array', 'minItems': 1, 'maxItems': 4,
+                                  'items': {'type': 'string'}}}}},
+            'gaps': {'type': 'array', 'maxItems': 8, 'items': {'type': 'string'}},
+            'contradictions': {'type': 'array', 'maxItems': 5, 'items': {'type': 'string'}},
+            'recommended_checks': {'type': 'array', 'maxItems': 6,
+                                   'items': {'type': 'string'}}}}
     payload = {'model':MODEL, 'messages':[{'role':'system','content':system},{'role':'user','content':user}],
                'temperature':0, 'max_tokens':320, 'stream':False,
-               'chat_template_kwargs': {'enable_thinking': False}}
+               'chat_template_kwargs': {'enable_thinking': False},
+               'response_format': {'type': 'json_schema', 'json_schema': {
+                   'name': 'evidence_assessment', 'strict': True, 'schema': response_schema}}}
     req = urllib.request.Request(BASE_URL + '/chat/completions', data=json.dumps(payload).encode(),
                                  headers={'Content-Type':'application/json'}, method='POST')
     try:
