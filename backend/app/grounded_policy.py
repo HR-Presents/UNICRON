@@ -277,6 +277,28 @@ def generate_draft(matrix, model_call):
                 break
     if len({item['jurisdiction'] for item in selected}) < 2:
         return None
+    # Give small local models explicit cross-jurisdiction citation pairs.
+    # These are drafting constraints, not evidence of legal comparability.
+    by_jurisdiction = {}
+    for item in selected:
+        by_jurisdiction.setdefault(item['jurisdiction'], []).append(item['citation'])
+    jurisdictions = list(by_jurisdiction)
+    citation_pairs = [
+        [left, right]
+        for left in by_jurisdiction[jurisdictions[0]]
+        for right in by_jurisdiction[jurisdictions[1]]
+    ]
+    drafting_context = {
+        'evidence': selected,
+        'valid_cross_jurisdiction_citation_pairs': citation_pairs,
+        'instructions': (
+            'For each nonempty comparisons or recommendation_drafts entry, '
+            'copy exactly one pair from valid_cross_jurisdiction_citation_pairs '
+            'into citations. Never use two citations from the same jurisdiction. '
+            'Produce at most one comparison and one recommendation; use empty '
+            'arrays when the excerpts cannot support a cautious review question.'
+        ),
+    }
     # Small local models occasionally invent citation identifiers or return
     # incomplete JSON. Retry once with a smaller, explicit citation allowlist.
     # Never relax validation or convert an invalid draft into a policy finding.
@@ -289,10 +311,12 @@ def generate_draft(matrix, model_call):
                 ' Previous output failed validation. Use ONLY these exact '
                 'citation identifiers: ' + allowed +
                 '. Every nonempty comparison or recommendation MUST cite '
-                'two distinct jurisdictions. Return empty arrays when unsure.'
+                'two distinct jurisdictions. Copy a complete pair from '
+                'valid_cross_jurisdiction_citation_pairs, never combine '
+                'citations from the same jurisdiction. Return empty arrays when unsure.'
             )
         try:
-            raw = model_call(prompt, {'evidence': selected}, schema, max_tokens=650)
+            raw = model_call(prompt, drafting_context, schema, max_tokens=650)
             return validate_draft(raw, matrix)
         except (ValueError, ValidationError) as exc:
             last_error = exc
