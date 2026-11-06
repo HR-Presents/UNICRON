@@ -218,7 +218,7 @@ def analyze_evidence(case_id: str):
         # sentence boundary without changing citation provenance.
         if len(content) > 420:
             window = content[:420]
-            endings = list(re.finditer(r'[.!?](?=\\s|$)', window))
+            endings = list(re.finditer(r'[.!?](?=\s|$)', window))
             if endings and endings[-1].end() >= 180:
                 return window[:endings[-1].end()].strip()
         return content[:420]
@@ -394,9 +394,9 @@ def analyze_evidence(case_id: str):
     if (re.search(r'artificial intelligence and\s+blockchain council', uae_strategy_text)
             and 'governance' in uae_strategy_text):
         assessment.gaps = [gap for gap in assessment.gaps
-                           if not (re.search(r'\\b(?:missing|lack|absence|no evidence)\\b', gap, re.I)
+                           if not (re.search(r'\b(?:missing|lack|absence|no evidence)\b', gap, re.I)
                                    and 'council' in gap.casefold()
-                                   and re.search(r'\\b(?:role|remit|governance review)\\b', gap, re.I))]
+                                   and re.search(r'\b(?:role|remit|governance review)\b', gap, re.I))]
     run_id, stamp = str(uuid4()), now()
     result = assessment.model_dump()
     result['flagged_findings'] = flagged_findings
