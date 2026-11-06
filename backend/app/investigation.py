@@ -571,6 +571,50 @@ def _execute_workflow(case_id, run_id, checkpoint):
             ("recommended_next_steps", "unresolved_questions"))).model_dump()
     except (ValidationError, HTTPException, ValueError) as exc:
         raise HTTPException(502, f'Review & Synthesis failed; no investigation saved: {type(exc).__name__}') from exc
+    # Keep the final report tied to actual upstream agent outputs. The small
+    # local model may otherwise repeat triage questions and omit evidence gaps.
+    evidence_gaps = evidence.get('gaps', []) if isinstance(evidence, dict) else []
+    if not isinstance(evidence_gaps, list):
+        evidence_gaps = []
+    questions = list(synthesis.get('unresolved_questions') or [])
+    for gap in evidence_gaps[:2]:
+        if isinstance(gap, str) and gap.strip() and gap not in questions:
+            questions.insert(0, gap[:350])
+    if policy['status'] == 'source_required':
+        question = 'Which UAE policy sources have been independently verified and are applicable to this case?'
+        if question not in questions:
+            questions.insert(0, question)
+    if benchmark['status'] == 'source_required':
+        question = 'Which verified sources support a comparison of at least two jurisdictions?'
+        if question not in questions:
+            questions.insert(0, question)
+    synthesis['unresolved_questions'] = questions[:5]
+
+    next_steps = list(synthesis.get('recommended_next_steps') or [])
+    required_actions = []
+    if policy['status'] == 'source_required':
+        required_actions.append('Independently verify policy source provenance and establish UAE legal applicability before policy conclusions.')
+    if benchmark['status'] == 'source_required':
+        required_actions.append('Obtain reviewer-verified benchmark evidence from two distinct jurisdictions before comparing regulations.')
+    if scenario.get('guardrail_flags'):
+        required_actions.append('Have a domain reviewer validate scenario assumptions and risk mitigations before operational use.')
+    synthesis['recommended_next_steps'] = (required_actions + [
+        step for step in next_steps if step not in required_actions
+    ])[:5]
+    synthesis['evidence_summary'] = {
+        'findings': [
+            {'statement': item.get('statement'), 'citations': item.get('citations', [])}
+            for item in (evidence.get('findings') or [])[:3]
+            if isinstance(item, dict)
+        ] if isinstance(evidence, dict) else [],
+        'gaps': [gap for gap in evidence_gaps[:3] if isinstance(gap, str)],
+        'verification_note': 'Citations identify uploaded passages; they do not independently establish source authenticity or legal applicability.',
+    }
+    synthesis['agent_statuses'] = {
+        'policy_advisor': policy['status'],
+        'global_benchmark': benchmark['status'],
+        'scenario_evaluator': 'completed',
+    }
     synthesis['review_gates'] = synthesis_review_gates(policy, benchmark, scenario)
     synthesis['prioritized_review_actions'] = synthesis_review_actions(benchmark, scenario)
     synthesis['human_review_required'] = True
