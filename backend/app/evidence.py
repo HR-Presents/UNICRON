@@ -207,12 +207,12 @@ def analyze_evidence(case_id: str):
         return filename
 
     def clean_excerpt(content):
-        content = re.sub(r'^SOURCE EXCERPTS FOR UNICRON TESTING[^\\n]*\\n', '', content)
-        content = re.sub(r'^Original file:[^\\n]*\\n', '', content)
-        content = re.sub(r'^Page numbers refer to PDF page index[^\\n]*\\n', '', content)
-        content = re.sub(r'^Original PDF:[^\\n]*\\n', '', content)
-        content = re.sub(r'^Extracted text only; independent verification required\\.[^\\n]*\\n', '', content)
-        content = re.sub(r'^\\s*===== ORIGINAL PDF PAGE \\d+ =====\\s*', '', content)
+        content = re.sub(r'^SOURCE EXCERPTS FOR UNICRON TESTING[^\n]*\\n', '', content)
+        content = re.sub(r'^Original file:[^\n]*\\n', '', content)
+        content = re.sub(r'^Page numbers refer to PDF page index[^\n]*\\n', '', content)
+        content = re.sub(r'^Original PDF:[^\n]*\\n', '', content)
+        content = re.sub(r'^Extracted text only; independent verification required\\.[^\n]*\\n', '', content)
+        content = re.sub(r'^\s*===== ORIGINAL PDF PAGE \d+ =====\s*', '', content)
         return content.strip()[:650]
 
     stopwords = {'this', 'that', 'with', 'from', 'into', 'about', 'across',
@@ -220,7 +220,7 @@ def analyze_evidence(case_id: str):
                  'test', 'synthetic', 'actual', 'details', 'compare',
                  'integration', 'unicron', 'agent', 'agents'}
     query = (case['title'] + ' ' + case['summary']).casefold()
-    terms = set(re.findall(r'[\\w-]{4,}', query)) - stopwords
+    terms = set(re.findall(r'[\w-]{4,}', query)) - stopwords
     # Domain-specific concepts improve ranking when case titles are generic.
     domain_terms = ('healthcare', 'health', 'patient', 'privacy', 'personal data',
                     'consent', 'clinical', 'risk', 'safety', 'human oversight',
@@ -280,7 +280,8 @@ def analyze_evidence(case_id: str):
               'Do not claim that citations prove truth. No markdown.')
     user = json.dumps({'case': {'title':case['title'],'summary':case['summary']}, 'excerpts':excerpts}, ensure_ascii=False) + '\n/no_think'
     payload = {'model':MODEL, 'messages':[{'role':'system','content':system},{'role':'user','content':user}],
-               'temperature':0, 'max_tokens':550, 'stream':False}
+               'temperature':0, 'max_tokens':550, 'stream':False,
+               'chat_template_kwargs': {'enable_thinking': False}}
     req = urllib.request.Request(BASE_URL + '/chat/completions', data=json.dumps(payload).encode(),
                                  headers={'Content-Type':'application/json'}, method='POST')
     try:
@@ -302,9 +303,9 @@ def analyze_evidence(case_id: str):
         for field in ('gaps', 'contradictions'):
             raw[field] = [item for item in raw.get(field, [])
                           if not (isinstance(item, str) and re.match(
-                              r'^\\s*(?:there (?:are|is) |no |none\\b)',
+                              r'^\s*(?:there (?:are|is) |no |none\b)',
                               item, flags=re.I) and re.search(
-                              r'\\b(?:no|none|not|without)\\b', item, flags=re.I))]
+                              r'\b(?:no|none|not|without)\b', item, flags=re.I))]
 
         assessment = EvidenceAssessment.model_validate(raw)
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
