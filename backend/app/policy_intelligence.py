@@ -23,7 +23,20 @@ def _rank(passages, query, limit=4):
             overlap = len(_terms(sentence) & terms)
             ranked.append((overlap, passage['citation'], sentence[:450], passage))
     ranked.sort(key=lambda row: (-row[0], row[1], row[2]))
-    return ranked[:limit]
+    # A citation identifies a passage, not an individual sentence. Keep the
+    # highest-ranked sentence for each passage so the evidence matrix has
+    # unambiguous citation identifiers without weakening draft validation.
+    unique = []
+    seen_citations = set()
+    for row in ranked:
+        citation = row[1]
+        if citation in seen_citations:
+            continue
+        seen_citations.add(citation)
+        unique.append(row)
+        if len(unique) >= limit:
+            break
+    return unique
 
 
 def _tagged(passages, tag):
