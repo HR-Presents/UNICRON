@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     "Evidence-grounded multi-agent intelligence for public-sector AI governance, policy comparison, and human-reviewed decisions.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
