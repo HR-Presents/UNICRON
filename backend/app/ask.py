@@ -29,8 +29,8 @@ def ask(request: AskRequest):
                               FROM evidence_passages p
                               JOIN evidence_documents d ON d.id=p.document_id
                               WHERE d.case_id=?''', (request.case_id,)).fetchall()
-    is_uae = bool(re.search(r'\\b(?:uae|united arab emirates|emirati)\\b', request.question, re.I))
-    is_privacy = bool(re.search(r'\\b(?:privacy|personal data|data protection|consent)\\b', request.question, re.I))
+    is_uae = bool(re.search(r'\b(?:uae|united arab emirates|emirati)\b', request.question, re.I))
+    is_privacy = bool(re.search(r'\b(?:privacy|personal data|data protection|consent)\b', request.question, re.I))
     ranked = []
     for row in rows:
         body = row['content']
