@@ -168,20 +168,13 @@ class EvidenceAssessment(BaseModel):
 
 
 def parse_response(content):
+    """Parse only the complete top-level response, never a nested JSON fragment."""
     content = re.sub(r'<think>.*?</think>', '', content, flags=re.S).strip()
-    content = re.sub(r'^```(?:json)?\s*|\s*```$', '', content, flags=re.I).strip()
+    content = re.sub(r'^\`\`\`(?:json)?\\s*|\\s*\`\`\`$', '', content, flags=re.I).strip()
     try:
         return json.loads(content)
-    except json.JSONDecodeError:
-        decoder = json.JSONDecoder()
-        for i, c in enumerate(content):
-            if c == '{':
-                try:
-                    obj, _ = decoder.raw_decode(content[i:])
-                    return obj
-                except json.JSONDecodeError:
-                    pass
-        raise ValueError('Model did not return JSON')
+    except json.JSONDecodeError as exc:
+        raise ValueError('Model did not return one complete JSON document') from exc
 
 
 @router.post('/api/cases/{case_id}/evidence/analyze')
@@ -323,7 +316,10 @@ def analyze_evidence(case_id: str):
     try:
         with urllib.request.urlopen(req, timeout=120) as response:
             answer = json.load(response)
-        raw = parse_response(answer['choices'][0]['message']['content'])
+        choice = answer['choices'][0]
+        if choice.get('finish_reason') == 'length':
+            raise HTTPException(502, 'Evidence analysis exceeded the model output token budget; no analysis saved')
+        raw = parse_response(choice['message']['content'])
 
         if not isinstance(raw, dict):
             raise ValueError('Expected a JSON object')
