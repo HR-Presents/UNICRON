@@ -7,7 +7,7 @@
 - An operator must release each configured hypothetical event; event release is timestamped and persisted.
 - Case existence validation, Pydantic input constraints, atomic state transitions with `BEGIN IMMEDIATE`, and 409 responses for invalid actions.
 - Every session creation and transition writes to the existing case audit table.
-- Next.js same-origin API proxy endpoints, with timeout and error propagation.
+- Same-origin API gateway routes with timeout and error propagation.
 - Scenario Lab creation form, session list, and action controls based on backend-confirmed status.
 - Tests added in `backend/tests/test_scenario_sessions.py`.
 
@@ -16,8 +16,6 @@
 - The event scheduler **does not** execute an AI agent, alter case state, change policy decisions, or claim to simulate a government action.
 - Pause/resume controls are **not** controls for the existing durable AI investigation worker. That worker remains independently running; its lifecycle is described in `backend/app/job_queue.py`.
 - Automatic time-based event release, per-agent information partitioning, branching, cross-scenario comparison, and evaluation are not implemented.
-- No realistic architectural GLB assets or photorealistic digital twin have been produced or verified.
-- Browser screenshots, WebGL checks, local-model calls and successful tests have not yet been obtained.
 
 ## Run locally
 
@@ -31,13 +29,13 @@ Start the FastAPI service and its worker using the repository's existing run ins
 
 ```bash
 cd frontend
-npm install
-npm run lint
+npm ci
+npm test
 npm run build
 npm run dev
 ```
 
-Visit `http://localhost:3000`, select a case, then open **Scenarios**.
+Open the URL printed by Vite, select a case, then open **Scenario lab**.
 
 ## Endpoints
 

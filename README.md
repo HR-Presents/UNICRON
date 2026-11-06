@@ -4,14 +4,14 @@
 
 UNICRON is an experimental full-stack platform developed for the ITU AI for Good UAE hackathon. It explores domain-specific government service cases, verified policy sources, international benchmarks, moderated community knowledge, and observable AI-agent investigations.
 
-> **Development status:** This repository contains working backend capabilities and a Next.js frontend prototype. The frontend still includes demonstration-only workflows and is not yet fully integrated with the investigation backend. Outputs are advisory, not legal determinations; qualified human review is required for policy conclusions.
+> **Development status:** The [UNICRON Command Center](frontend/) displays saved case records and investigation checkpoints through a server-side gateway. Citizen movement on the digital twin is simulated. Qualified human review is required for policy conclusions.
 
 ## Architecture
 
 - **Backend:** Python, FastAPI, SQLite; durable investigation queue and worker; evidence provenance, source verification, audit history, and review workflows.
 - **Agent pipeline:** Intake & Triage, Evidence Analyst, Policy Advisor, Global Benchmark Agent, Scenario Evaluator, Review & Synthesis.
 - **LLM:** OpenAI-compatible chat-completions endpoint, configurable through `CIVITAS_LLM_BASE_URL` and `CIVITAS_LLM_MODEL`. The current local development setup uses llama.cpp; GPU/vLLM deployment still requires validation.
-- **Frontend:** Next.js 16 / React 19, under `frontend/`. Some sections are explicitly demonstration-only pending integration.
+- **Frontend:** Vite, React 19, React Three Fiber and Three.js in [`frontend/`](frontend/). The Command Center includes the interactive 3D twin, six-agent workbench, scenario lab and audit evidence.
 - **Knowledge:** Moderated contributions are contextual material, not independently authenticated policy evidence.
 
 ## Local development
@@ -24,17 +24,30 @@ source .venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-Start the backend from the repository root:
+Install the frontend dependencies:
+
+```bash
+npm ci --prefix frontend
+```
+
+Run `./start.sh` from the repository root to start the loopback API, investigation worker and frontend. The script prints the frontend URL. Configure the separate model service as described in [the backend handoff](BACKEND_HANDOFF.md) before running investigations.
+
+To run the processes separately, start the API from the repository root:
 
 ```bash
 python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 42515
 ```
 
-Start the frontend in a separate terminal:
+Start the investigation worker from the same directory in a second terminal, with the same model and database configuration:
+
+```bash
+python -m backend.app.job_queue
+```
+
+Start the frontend in a third terminal:
 
 ```bash
 cd frontend
-npm ci
 npm run dev
 ```
 
@@ -44,7 +57,7 @@ Run the existing backend test suite:
 python -m pytest -q
 ```
 
-The frontend proxies API requests to the backend; check `frontend/next.config.ts` and the route handlers for the active local configuration.
+The local frontend gateway connects to the backend on port 42515 by default. See [the frontend configuration](frontend/.env.example) for server-side overrides and AI Desk settings. Run `npm test --prefix frontend` and `npm run build --prefix frontend` to validate the frontend.
 
 ## Safety and evidence integrity
 
@@ -56,10 +69,8 @@ The frontend proxies API requests to the backend; check `frontend/next.config.ts
 
 ## Current development priorities
 
-1. Replace browser-only demo cases with persisted API-backed case management.
-2. Connect agent orchestration and status events to the frontend.
-3. Surface citations, source eligibility, uncertainty, and human-review decisions.
-4. Complete community knowledge and scenario evaluation UI flows.
-5. Validate frontend lint/build, backend tests, end-to-end workflows, and GPU/vLLM operation.
+1. Validate all six agents against a real model and verified sources.
+2. Evaluate retrieval quality, citation accuracy and human review across multiple exercise scenarios.
+3. Validate GPU/vLLM operation and prepare the ITU alignment evidence.
 
 Project repository: https://github.com/HR-Presents/Unicron
