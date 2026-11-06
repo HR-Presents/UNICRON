@@ -60,7 +60,8 @@ def infer(case):
               'If evidence is missing, explicitly say so. No markdown or thinking.')
     user = json.dumps({k: case[k] for k in ('title','summary','domain','priority')}) + '\n/no_think'
     payload = {'model': MODEL, 'messages': [{'role':'system','content':system}, {'role':'user','content':user}],
-               'temperature': 0.1, 'max_tokens': 550, 'stream': False}
+               'temperature': 0.1, 'max_tokens': 550, 'stream': False,
+               'chat_template_kwargs': {'enable_thinking': False}}
     request = urllib.request.Request(BASE_URL + '/chat/completions', data=json.dumps(payload).encode(),
                                      headers={'Content-Type':'application/json'}, method='POST')
     try:
