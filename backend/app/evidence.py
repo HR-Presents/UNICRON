@@ -391,8 +391,7 @@ def analyze_evidence(case_id: str):
     # Do not report the Council's governance-review remit as entirely missing
     # when the retrieved UAE strategy expressly identifies that remit. This
     # does not verify the publication's authenticity or current legal status.
-    if ('artificial intelligence and' in uae_strategy_text
-            and 'blockchain council' in uae_strategy_text
+    if (re.search(r'artificial intelligence and\s+blockchain council', uae_strategy_text)
             and 'governance' in uae_strategy_text):
         assessment.gaps = [gap for gap in assessment.gaps
                            if not (re.search(r'\\b(?:missing|lack|absence|no evidence)\\b', gap, re.I)
