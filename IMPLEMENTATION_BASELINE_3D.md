@@ -1,5 +1,7 @@
 # UNICRON — implementation baseline and visual acceptance gate
 
+> Historical baseline. The current Command Center and its run instructions are in [`frontend/`](frontend/).
+
 Status: **Stage A inspected; Stages B–J not verified**. This is a repository inspection record, not a claim that the photorealistic twin is built.
 
 ## Findings from development branch

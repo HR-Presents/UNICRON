@@ -1,2 +1,0 @@
-import {NextRequest,NextResponse} from "next/server";
-export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>}){const {id}=await params;try{const r=await fetch(`${process.env.BACKEND_URL??"http://127.0.0.1:42515"}/api/cases/${encodeURIComponent(id)}/sources`,{cache:"no-store",signal:AbortSignal.timeout(10000)});return NextResponse.json(await r.json(),{status:r.status});}catch{return NextResponse.json({detail:"Source registry unavailable"},{status:503});}}

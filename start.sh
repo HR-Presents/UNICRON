@@ -4,70 +4,76 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
+PYTHON="$ROOT/.venv/bin/python"
+VITE="$ROOT/frontend/node_modules/.bin/vite"
+if [ ! -x "$PYTHON" ]; then
+  echo "Python virtual environment missing. See the local development instructions in README.md."
+  exit 1
+fi
+if [ ! -x "$VITE" ]; then
+  echo "Frontend dependencies missing. Run npm ci --prefix frontend."
+  exit 1
+fi
+
 find_free_port() {
-  python3 - <<'PY'
+  "$PYTHON" - <<'PY'
 import socket
-with socket.socket() as s:
-    s.bind(("127.0.0.1", 0))
-    print(s.getsockname()[1])
+with socket.socket() as listener:
+    listener.bind(("127.0.0.1", 0))
+    print(listener.getsockname()[1])
 PY
 }
 
 BACKEND_PORT=$(find_free_port)
 FRONTEND_PORT=$(find_free_port)
-
 while [ "$FRONTEND_PORT" = "$BACKEND_PORT" ]; do
   FRONTEND_PORT=$(find_free_port)
 done
 
-if [ ! -x "$ROOT/.venv/bin/python" ]; then
-  echo "Python virtual environment missing."
-  exit 1
-fi
-
-if [ ! -d "$ROOT/frontend/node_modules" ]; then
-  echo "Frontend dependencies missing."
-  exit 1
-fi
-
-printf 'NEXT_PUBLIC_API_URL=http://localhost:%s\n' "$BACKEND_PORT" > "$ROOT/frontend/.env.local"
-
+pids=()
 cleanup() {
-  echo ""
-  echo "Stopping CIVITAS..."
-  kill "${BACKEND_PID:-}" "${FRONTEND_PID:-}" 2>/dev/null || true
-  wait 2>/dev/null || true
+  kill "${pids[@]}" 2>/dev/null || true
+  wait "${pids[@]}" 2>/dev/null || true
 }
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-trap cleanup EXIT INT TERM
+"$PYTHON" -m uvicorn backend.app.main:app --host 127.0.0.1 --port "$BACKEND_PORT" &
+pids+=("$!")
 
-echo "Starting CIVITAS backend on port $BACKEND_PORT"
+"$PYTHON" - "$BACKEND_PORT" <<'PY'
+import sys
+import time
+from urllib.request import urlopen
 
-(
-  cd "$ROOT/backend"
-  "$ROOT/.venv/bin/python" -m uvicorn app.main:app \
-    --host 127.0.0.1 \
-    --port "$BACKEND_PORT"
-) &
-BACKEND_PID=$!
+url = f"http://127.0.0.1:{sys.argv[1]}/api/health"
+deadline = time.monotonic() + 20
+while time.monotonic() < deadline:
+    try:
+        with urlopen(url, timeout=1):
+            break
+    except OSError:
+        time.sleep(0.2)
+else:
+    raise SystemExit("The UNICRON API did not become ready.")
+PY
 
-echo "Starting CIVITAS frontend on port $FRONTEND_PORT"
+"$PYTHON" -m backend.app.job_queue &
+pids+=("$!")
 
 (
   cd "$ROOT/frontend"
-  npm run dev -- --hostname 127.0.0.1 --port "$FRONTEND_PORT"
+  export UNICRON_API_URL="http://127.0.0.1:$BACKEND_PORT"
+  if [ -n "${CIVITAS_API_KEY:-}" ] && [ -z "${UNICRON_API_TOKEN:-}" ]; then
+    export UNICRON_API_TOKEN="$CIVITAS_API_KEY"
+  fi
+  exec "$VITE" --host 127.0.0.1 --port "$FRONTEND_PORT" --strictPort
 ) &
-FRONTEND_PID=$!
+pids+=("$!")
 
-echo ""
-echo "======================================"
-echo "       CIVITAS DEVELOPMENT SERVER"
-echo "======================================"
-echo "Frontend: http://localhost:$FRONTEND_PORT"
-echo "Backend:  http://localhost:$BACKEND_PORT"
-echo "API Docs: http://localhost:$BACKEND_PORT/docs"
-echo "======================================"
-echo ""
-echo "Press Ctrl+C to stop both servers."
+echo "UNICRON Command Center: http://127.0.0.1:$FRONTEND_PORT"
+echo "Backend API docs: http://127.0.0.1:$BACKEND_PORT/docs"
+echo "Press Ctrl+C to stop the API, worker, and frontend."
 
-wait -n "$BACKEND_PID" "$FRONTEND_PID"
+wait -n "${pids[@]}"
