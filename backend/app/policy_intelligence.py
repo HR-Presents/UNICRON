@@ -40,15 +40,39 @@ def _rank(passages, query, limit=4):
 
 
 def _benchmark_rank(passages, query, limit=12):
-    """Rank usable, coherent evidence without changing source attestations."""
+    """Prefer substantive multi-line excerpts while preserving citations."""
     terms = _terms(query)
     ranked = []
+    boilerplate = (
+        'SOURCE EXCERPTS FOR UNICRON TESTING',
+        'Human reviewer must compare each excerpt',
+        'Extracted text only; independent verification required',
+    )
     for passage in passages:
         raw = passage.get('text') or ''
-        # Wrappers and PDF extraction notices are not regulatory evidence.
-        cleaned = re.sub(r'===== ORIGINAL PDF PAGE \d+ =====', ' ', raw)
-        cleaned = re.sub(r'(?im)^.*(?:SOURCE EXCERPTS FOR UNICRON TESTING|Human reviewer must compare each excerpt|Extracted text only; independent verification required).*
-    return [p for p in passages if re.search(r'(?<!\w)' + re.escape(tag) + r'(?!\w)', p.get('source_note', ''), re.I)]
+        lines = [
+            line.strip() for line in raw.splitlines()
+            if line.strip()
+            and not any(marker.lower() in line.lower() for marker in boilerplate)
+            and not line.strip().startswith('===== ORIGINAL PDF PAGE')
+        ]
+        cleaned = ' '.join(lines)
+        if len(cleaned) < 90:
+            continue
+        excerpt = cleaned[:850]
+        words = excerpt.split()
+        if len(words) < 15:
+            continue
+        overlap = len(_terms(excerpt) & terms)
+        short_word_fraction = sum(len(word) <= 2 for word in words) / len(words)
+        score = overlap * 5 + min(len(words), 90) / 30 - short_word_fraction * 8
+        ranked.append((score, passage['citation'], excerpt, passage))
+    ranked.sort(key=lambda row: (-row[0], row[1], row[2]))
+    return ranked[:limit]
+
+
+def _tagged(passages, tag):
+    return [p for p in passages if re.search(r'(?<!\\w)' + re.escape(tag) + r'(?!\\w)', p.get('source_note', ''), re.I)]
 
 
 def _verified(passages, kind):
