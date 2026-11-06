@@ -153,7 +153,7 @@ def benchmark_stage(passages, case):
             jurisdictions.setdefault(jurisdiction.casefold(), {'jurisdiction':jurisdiction,'passages':[]})['passages'].append(p)
     summaries = []
     for item in sorted(jurisdictions.values(), key=lambda v: v['jurisdiction'].casefold()):
-        excerpts = _rank(item['passages'], case['title'] + ' ' + case['summary'], limit=2)
+        excerpts = _rank(item['passages'], case['title'] + ' ' + case['summary'], limit=12)
         summaries.append({'jurisdiction':item['jurisdiction'], 'source_excerpts':[
             {'citation':cid,'verbatim_excerpt':sentence,'provenance':_source(p)} for _,cid,sentence,p in excerpts]})
     enough = len(jurisdictions) >= 2
