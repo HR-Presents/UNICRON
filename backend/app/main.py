@@ -142,3 +142,7 @@ install_job_queue(app, DB_PATH)
 # Auditable hypothetical scenario event sessions (separate from AI workflow).
 from .scenario_sessions import install as install_scenario_sessions
 install_scenario_sessions(app, DB_PATH)
+
+# Question-first grounded research preview.
+from .ask import install as install_ask
+install_ask(app)
