@@ -324,8 +324,37 @@ def analyze_evidence(case_id: str):
     for finding in assessment.findings:
         if not set(finding.citations).issubset(allowed):
             raise HTTPException(502, 'Model supplied an unrecognized citation; analysis not saved')
+    # Conservative provenance checks: citation existence is not factual entailment.
+    # Flag conspicuous cross-source legal attribution instead of publishing it
+    # as an accepted finding. Other claims still require qualified human review.
+    citation_sources = {e['citation']: e['filename'].casefold() for e in excerpts}
+    accepted_findings = []
+    flagged_findings = []
+    for finding in assessment.findings:
+        statement = finding.statement.casefold()
+        cited_names = [citation_sources[c] for c in finding.citations]
+        uae_attribution = bool(re.search(r'\\b(?:uae|united arab emirates|emirati)\\b', statement))
+        non_uae_only = all(name.startswith(('who_', 'unesco_', 'unicron_eu_')) for name in cited_names)
+        legal_obligation = bool(re.search(r'\\b(?:law|laws|legislation|regulation|regulations)\\b', statement)
+                                and re.search(r'\\b(?:require|requires|mandate|mandates|must)\\b', statement))
+        # A clipped consent-withdrawal passage cannot establish a blanket
+        # requirement to obtain consent for all processing.
+        consent_overreach = (all(name.startswith('uae_pdpl_') for name in cited_names)
+                             and 'consent' in statement and 'withdrawal' in statement
+                             and ('processed' in statement or 'processing' in statement)
+                             and legal_obligation)
+        if (uae_attribution and non_uae_only) or consent_overreach:
+            flagged_findings.append({'statement': finding.statement,
+                                     'citations': finding.citations,
+                                     'reason': ('cross_source_attribution' if non_uae_only
+                                                else 'consent_scope_not_established'),
+                                     'human_review_required': True})
+        else:
+            accepted_findings.append(finding)
+    assessment.findings = accepted_findings
     run_id, stamp = str(uuid4()), now()
     result = assessment.model_dump()
+    result['flagged_findings'] = flagged_findings
     with connect() as con:
         con.execute('INSERT INTO evidence_runs VALUES (?,?,?,?,?,?)',
                     (run_id,case_id,answer.get('model',MODEL),json.dumps(result),json.dumps(excerpts),stamp))
