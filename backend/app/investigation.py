@@ -224,6 +224,7 @@ def model_json(system, context, schema, max_tokens=420):
         'temperature': 0,
         'max_tokens': max_tokens,
         'stream': False,
+        'chat_template_kwargs': {'enable_thinking': False},
     }
     req = urllib.request.Request(BASE_URL + '/chat/completions', data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'}, method='POST')
     started = time.perf_counter()
