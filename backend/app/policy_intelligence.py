@@ -136,7 +136,7 @@ def _comparison_draft(matrix):
     }
 
 def benchmark_stage(passages, case):
-    sources = _verified(passages, 'benchmark')
+    # Verified jurisdiction-specific policy texts can serve as comparative evidence.\n    # Preserve source_type in provenance; exclude international guidance from\n    # the two-jurisdiction benchmark threshold.\n    sources = [p for p in passages\n               if p.get('verification_status') == 'verified'\n               and p.get('source_type') in ('benchmark', 'policy')\n               and p.get('jurisdiction') and p.get('official_url')\n               and p['jurisdiction'].strip().casefold() not in ('international', 'global')]
     jurisdictions = {}
     for p in sources:
         jurisdiction = p['jurisdiction'].strip()
