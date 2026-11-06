@@ -213,7 +213,15 @@ def analyze_evidence(case_id: str):
         content = re.sub(r'^Original PDF:[^\n]*\n', '', content)
         content = re.sub(r'^Extracted text only; independent verification required\.[^\n]*\n', '', content)
         content = re.sub(r'^\s*===== ORIGINAL PDF PAGE \d+ =====\s*', '', content)
-        return content.strip()[:420]
+        content = content.strip()
+        # Uploaded PDF chunks often begin mid-word. Prefer the first complete
+        # sentence boundary without changing citation provenance.
+        if len(content) > 420:
+            window = content[:420]
+            endings = list(re.finditer(r'[.!?](?=\\s|$)', window))
+            if endings and endings[-1].end() >= 180:
+                return window[:endings[-1].end()].strip()
+        return content[:420]
 
     stopwords = {'this', 'that', 'with', 'from', 'into', 'about', 'across',
                  'their', 'these', 'those', 'have', 'will', 'should', 'case',
@@ -380,6 +388,16 @@ def analyze_evidence(case_id: str):
                            if not (re.search(r'\\b(?:lack|missing|insufficient|absence|not (?:explicit|clear))\\b', gap, re.I)
                                    and re.search(r'\\b(?:cybersecurity|national strategy)\\b', gap, re.I)
                                    and re.search(r'\\b(?:priority|governance|review|address|strategy)\\b', gap, re.I))]
+    # Do not report the Council's governance-review remit as entirely missing
+    # when the retrieved UAE strategy expressly identifies that remit. This
+    # does not verify the publication's authenticity or current legal status.
+    if ('artificial intelligence and' in uae_strategy_text
+            and 'blockchain council' in uae_strategy_text
+            and 'governance' in uae_strategy_text):
+        assessment.gaps = [gap for gap in assessment.gaps
+                           if not (re.search(r'\\b(?:missing|lack|absence|no evidence)\\b', gap, re.I)
+                                   and 'council' in gap.casefold()
+                                   and re.search(r'\\b(?:role|remit|governance review)\\b', gap, re.I))]
     run_id, stamp = str(uuid4()), now()
     result = assessment.model_dump()
     result['flagged_findings'] = flagged_findings
