@@ -11,7 +11,7 @@ def _sentences(text):
 
 
 def _terms(text):
-    stop = {'the','and','for','with','from','this','that','are','was','were','have','has','been','into','their','about','service','case','public','water','supply','issue'}
+    stop = {'the','and','for','with','from','this','that','are','was','were','have','has','been','into','their','about','service','case','public','water','supply','issue','apply','shall','must','should','would','could','under','within','where','which','these','those','such','other','each','anyone','person','persons','article','section','regulation','provision','provisions','lawful','legal','authority','authorities','state','states','member','members','including','provided','subject','referred','respect','following','purpose','purposes','thereof','therein','thereby','hereby','accordance','requirement','requirements'}
     return {w for w in re.findall(r'[a-z]{4,}', text.lower()) if w not in stop}
 
 
