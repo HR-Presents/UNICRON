@@ -253,6 +253,10 @@ def generate_draft(matrix, model_call):
               'Use ONLY the supplied verbatim excerpts. Do not assert legal equivalence, conflict, applicability, or verified facts. '
               'Use classifications potential_similarity, potential_difference, or requires_review. '
               'Each comparison and recommendation must cite at least two DIFFERENT jurisdictions with exact citation identifiers. '
+              'Do not claim the jurisdictions conflict, contradict one another, impose different legal requirements, or are incompatible. '
+              'Instead describe only the specific subject matter explicitly mentioned in EACH cited excerpt, attributing each observation to its jurisdiction. '
+              'A shared topic does not prove legal equivalence or difference. When excerpts discuss unrelated topics, use requires_review and frame the observation as a question for a qualified reviewer, not a factual comparison. '
+              'Do not infer legal duties from titles, context, or missing text. '
               'If insufficient evidence, return empty lists. Recommendations are proposals for human assessment, not legal advice.')
     schema = '{"comparisons":[{"observation":"string","citations":["id1","id2"],"classification":"requires_review"}],"recommendation_drafts":[{"action":"string","citations":["id1","id2"],"rationale":"string"}],"unresolved_questions":["string"]}'
     # Retain the complete evidence matrix for citation validation, but send
@@ -313,11 +317,26 @@ def generate_draft(matrix, model_call):
                 '. Every nonempty comparison or recommendation MUST cite '
                 'two distinct jurisdictions. Copy a complete pair from '
                 'valid_cross_jurisdiction_citation_pairs, never combine '
-                'citations from the same jurisdiction. Return empty arrays when unsure.'
+                'citations from the same jurisdiction. Do not assert conflicts, '
+                'contradictions, different legal obligations, or proven equivalence. '
+                'Describe only what each cited passage actually says; if the '
+                'passages do not support a comparison, use a review question '
+                'or empty arrays. Return empty arrays when unsure.'
             )
         try:
             raw = model_call(prompt, drafting_context, schema, max_tokens=650)
-            return validate_draft(raw, matrix)
+            validated = validate_draft(raw, matrix)
+            # An unproven legal conflict is a drafting-quality failure, not a
+            # finding. Retry once; retain the flagged draft if the small model
+            # cannot improve it, preserving the audit trail and review gates.
+            if any(flag['code'] in {'unproven_legal_conflict',
+                                     'unproven_legal_difference',
+                                     'overstated_certainty'}
+                   for flag in validated['claim_risk_flags']):
+                if attempt == 0:
+                    last_error = ValueError('Draft asserts an unproven legal conclusion')
+                    continue
+            return validated
         except (ValueError, ValidationError) as exc:
             last_error = exc
     raise ValueError('Policy draft invalid after two attempts: ' +
