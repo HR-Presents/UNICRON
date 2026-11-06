@@ -72,7 +72,7 @@ def _benchmark_rank(passages, query, limit=12):
 
 
 def _tagged(passages, tag):
-    return [p for p in passages if re.search(r'(?<!\\w)' + re.escape(tag) + r'(?!\\w)', p.get('source_note', ''), re.I)]
+    return [p for p in passages if re.search(r'(?<!\w)' + re.escape(tag) + r'(?!\w)', p.get('source_note', ''), re.I)]
 
 
 def _verified(passages, kind):
