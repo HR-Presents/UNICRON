@@ -513,7 +513,11 @@ def _execute_workflow(case_id, run_id, checkpoint):
     matrix = benchmark['result'].get('evidence_matrix')
     if matrix and benchmark['status'] == 'review_required':
         try:
-            draft = generate_draft(matrix, model_json)
+            draft = generate_draft(
+                matrix,
+                model_json,
+                candidates=benchmark['result']['comparison_draft']['candidates'],
+            )
             benchmark['result']['ai_comparison_draft'] = (
                 verify_draft_claims(draft, model_json) if draft is not None else None
             )

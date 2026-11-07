@@ -47,6 +47,24 @@ def assess_claim_risks(draft, evidence):
                 risks.append({'claim_index': i, 'code': code,
                               'action': 'qualified_review_required',
                               'reason': 'The cited excerpts alone do not establish this legal conclusion.'})
+    # Recommendations must not claim established regulatory compliance.
+    compliance_patterns = (
+        r"\b(?:ensure|ensures|ensuring|guarantee|guarantees|guaranteeing)\s+compliance\b",
+        r"\bfully compliant\b",
+        r"\bcompliant with (?:both|all)\b",
+        r"\b(?:satisfies|meets)\s+(?:both|all)\s+(?:laws|regulations|requirements)\b",
+    )
+    for index, recommendation in enumerate(draft.recommendation_drafts):
+        recommendation_text = recommendation.action + " " + recommendation.rationale
+        if any(re.search(pattern, recommendation_text, flags=re.I)
+               for pattern in compliance_patterns):
+            risks.append({
+                "claim_index": None,
+                "recommendation_index": index,
+                "code": "unproven_compliance_assurance",
+                "action": "qualified_review_required",
+                "reason": "The cited evidence does not establish regulatory compliance.",
+            })
     if not evidence_text.strip():
         risks.append({'claim_index': None, 'code': 'empty_evidence',
                       'action': 'qualified_review_required', 'reason': 'No evidence text available.'})
@@ -245,7 +263,7 @@ def verify_draft_claims(draft, model_call):
         'semantic entailment or legal accuracy.')
     return draft
 
-def generate_draft(matrix, model_call):
+def generate_draft(matrix, model_call, candidates=None):
     if not matrix or len(matrix['jurisdictions']) < 2:
         return None
     evidence = _evidence(matrix)
@@ -262,23 +280,71 @@ def generate_draft(matrix, model_call):
     # Retain the complete evidence matrix for citation validation, but send
     # only distinct, balanced excerpts to small-context local language models.
     selected = []
-    for jurisdiction in matrix['jurisdictions']:
-        items = [item for item in evidence
-                 if item['jurisdiction'] == jurisdiction['jurisdiction']]
-        seen = set()
-        for item in items:
-            excerpt = item['verbatim_excerpt'].strip()
-            fingerprint = ' '.join(excerpt.casefold().split())
-            if not excerpt or fingerprint in seen:
+    selected_pairs = None
+
+    if candidates is not None:
+        lookup = {item['citation']: item for item in evidence}
+        selected_pairs = []
+        selected_citations = set()
+
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
                 continue
-            seen.add(fingerprint)
-            selected.append({
+            citations = candidate.get('citations')
+            if (
+                not isinstance(citations, (list, tuple))
+                or len(citations) != 2
+                or not all(isinstance(c, str) for c in citations)
+                or len(set(citations)) != 2
+            ):
+                continue
+            if any(citation not in lookup for citation in citations):
+                continue
+            if len({lookup[citation]['jurisdiction'] for citation in citations}) != 2:
+                continue
+
+            pair = list(citations)
+            if pair in selected_pairs:
+                continue
+
+            selected_pairs.append(pair)
+            selected_citations.update(pair)
+
+            if len(selected_pairs) >= 2:
+                break
+
+        if not selected_pairs:
+            return None
+
+        selected = [
+            {
                 'jurisdiction': item['jurisdiction'],
                 'citation': item['citation'],
-                'verbatim_excerpt': excerpt[:360],
-            })
-            if len(seen) >= 3:
-                break
+                'verbatim_excerpt': item['verbatim_excerpt'].strip()[:360],
+            }
+            for item in evidence
+            if item['citation'] in selected_citations
+            and item['verbatim_excerpt'].strip()
+        ]
+
+    else:
+        for jurisdiction in matrix['jurisdictions']:
+            items = [item for item in evidence
+                     if item['jurisdiction'] == jurisdiction['jurisdiction']]
+            seen = set()
+            for item in items:
+                excerpt = item['verbatim_excerpt'].strip()
+                fingerprint = ' '.join(excerpt.casefold().split())
+                if not excerpt or fingerprint in seen:
+                    continue
+                seen.add(fingerprint)
+                selected.append({
+                    'jurisdiction': item['jurisdiction'],
+                    'citation': item['citation'],
+                    'verbatim_excerpt': excerpt[:360],
+                })
+                if len(seen) >= 3:
+                    break
     if len({item['jurisdiction'] for item in selected}) < 2:
         return None
     # Give small local models explicit cross-jurisdiction citation pairs.
@@ -287,7 +353,7 @@ def generate_draft(matrix, model_call):
     for item in selected:
         by_jurisdiction.setdefault(item['jurisdiction'], []).append(item['citation'])
     jurisdictions = list(by_jurisdiction)
-    citation_pairs = [
+    citation_pairs = selected_pairs if selected_pairs is not None else [
         [left, right]
         for left in by_jurisdiction[jurisdictions[0]]
         for right in by_jurisdiction[jurisdictions[1]]
@@ -326,6 +392,19 @@ def generate_draft(matrix, model_call):
         try:
             raw = model_call(prompt, drafting_context, schema, max_tokens=650)
             validated = validate_draft(raw, matrix)
+
+            if selected_pairs is not None:
+                allowed_pairs = {
+                    frozenset(pair) for pair in selected_pairs
+                }
+
+                for section in ('comparisons', 'recommendation_drafts'):
+                    for entry in raw[section]:
+                        if frozenset(entry['citations']) not in allowed_pairs:
+                            raise ValueError(
+                                'Draft cites a pair outside selected evidence'
+                            )
+
             # An unproven legal conflict is a drafting-quality failure, not a
             # finding. Retry once; retain the flagged draft if the small model
             # cannot improve it, preserving the audit trail and review gates.

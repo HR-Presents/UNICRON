@@ -39,6 +39,34 @@ def _rank(passages, query, limit=4):
     return unique
 
 
+def _benchmark_rank(passages, query, limit=12):
+    """Select substantive passage context, retaining original citation IDs."""
+    terms = _terms(query)
+    boilerplate = (
+        'SOURCE EXCERPTS FOR UNICRON TESTING',
+        'Human reviewer must compare each excerpt',
+        'Extracted text only; independent verification required',
+    )
+    ranked = []
+    for passage in passages:
+        lines = [
+            line.strip()
+            for line in (passage.get('text') or '').splitlines()
+            if line.strip()
+            and not line.strip().startswith('===== ORIGINAL PDF PAGE')
+            and not any(marker.lower() in line.lower() for marker in boilerplate)
+        ]
+        excerpt = ' '.join(lines)[:850]
+        words = excerpt.split()
+        if len(words) < 15 or len(excerpt) < 90:
+            continue
+        overlap = len(_terms(excerpt) & terms)
+        score = overlap * 5 + min(len(words), 90) / 30
+        ranked.append((score, passage['citation'], excerpt, passage))
+    ranked.sort(key=lambda row: (-row[0], row[1], row[2]))
+    return ranked[:limit]
+
+
 def _tagged(passages, tag):
     return [p for p in passages if re.search(r'(?<!\w)' + re.escape(tag) + r'(?!\w)', p.get('source_note', ''), re.I)]
 
@@ -166,7 +194,7 @@ def benchmark_stage(passages, case):
             jurisdictions.setdefault(jurisdiction.casefold(), {'jurisdiction':jurisdiction,'passages':[]})['passages'].append(p)
     summaries = []
     for item in sorted(jurisdictions.values(), key=lambda v: v['jurisdiction'].casefold()):
-        excerpts = _rank(item['passages'], case['title'] + ' ' + case['summary'], limit=12)
+        excerpts = _benchmark_rank(item['passages'], case['title'] + ' ' + case['summary'], limit=12)
         summaries.append({'jurisdiction':item['jurisdiction'], 'source_excerpts':[
             {'citation':cid,'verbatim_excerpt':sentence,'provenance':_source(p)} for _,cid,sentence,p in excerpts]})
     enough = len(jurisdictions) >= 2
